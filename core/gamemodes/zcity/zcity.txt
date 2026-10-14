@@ -1,0 +1,6 @@
+"zcity"
+{
+	"base"		    "base"
+	"maps"		    ""
+	"menusystem"	"1"
+}
