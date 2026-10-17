@@ -30,6 +30,8 @@ function playermeta:create_fake(vel)
     rag:SetAngles(self:GetAngles())
     rag:SetModel(self:GetModel())
 
+    rag:SetNWVector("PlayerColor", self:GetPlayerColor())
+
     rag:SetCollisionGroup(COLLISION_GROUP_WEAPON)
 
     -- регдолл не получает физический урон, убрал

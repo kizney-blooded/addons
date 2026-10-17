@@ -1,6 +1,8 @@
 function hmcd.StartRound()
     for _ , ply in player.Iterator() do
         ply:Spawn()
+
+        ply:SetPlayerColor(Vector(math.random(1,255)/255,math.random(1,255)/255,math.random(1,255)/255))
     end
 end
 
