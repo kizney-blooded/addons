@@ -113,9 +113,20 @@ end)
 
 concommand.Add("fake",function(ply)
     local rag = ply.FakeRagdoll
+    if not ply:Alive() then return end
     if not IsValid(rag) then
         ply:create_fake()
     else
         ply:exit_fake()
     end
+end)
+
+
+hook.Add("PlayerDeath","DeathFake",function(ply,inf,att)
+    if not IsValid(ply.FakeRagdoll) then
+        ply:create_fake()
+    end
+
+    ply:SetNWEntity("FakeRagdoll", NULL)
+    ply.FakeRagdoll = nil
 end)

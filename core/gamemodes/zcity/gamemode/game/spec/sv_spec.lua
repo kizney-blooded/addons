@@ -14,3 +14,7 @@ hook.Add("PlayerDeath","Specatate",function(ply,inf,att)
         end)
     end
 end)
+
+hook.Add("PlayerDeathThink","DisablePlayerDeathThink",function(ply)
+    return false
+end)
