@@ -3,22 +3,30 @@ local vec1 = Vector(1,1,1)
 
 local smooth_angle = Angle(0,0,0)
 
+local eyes
+
 hook.Add( "CalcView", "MyCalcView", function( ply, pos, angles, fov )
 
-	local rag = ply:GetNWEntity("FakeRagdoll")
-	local target = IsValid(rag) and rag or ply
+	if ply:Alive() then
 
-    local get_eyes = target:LookupAttachment("eyes")
-    local eyes = target:GetAttachment(get_eyes)
+		local rag = ply:GetNWEntity("FakeRagdoll")
+		local target = IsValid(rag) and rag or ply
 
-	if GetViewEntity() != ply then return end
+		local get_eyes = target:LookupAttachment("eyes")
+		eyes = target:GetAttachment(get_eyes)
+
+		if GetViewEntity() != ply then return end
+		
+	end
 
 
     local ft = FrameTime()
     smooth_angle = LerpAngle(ft * 15, smooth_angle , angles)
 
+	local set_origin = ply:Alive() and eyes.Pos or pos
+ 
 	local view = {
-		origin = eyes.Pos,
+		origin = set_origin,
 		angles = smooth_angle,
 		fov = 100,
 		drawviewer = true,
@@ -28,17 +36,10 @@ hook.Add( "CalcView", "MyCalcView", function( ply, pos, angles, fov )
 	return view
 end )
 
-local hide = {
-	["CHudHealth"] = true,
-	["CHudBattery"] = true,
-    ["CHudCrosshair"] = true,
-}
-
-
-hook.Add( "HUDShouldDraw", "HideHUD", function( name )if ( hide[ name ] ) then return false end end )
-
 hook.Add("Think","HideHead",function()
 	local ply = LocalPlayer()
+
+	if not ply:Alive() then return end
 	
 	local rag = ply:GetNWEntity("FakeRagdoll")
 
@@ -52,3 +53,12 @@ hook.Add("Think","HideHead",function()
 		target:ManipulateBoneScale(head,vec0)
 	end
 end)
+
+local hide = {
+	["CHudHealth"] = true,
+	["CHudBattery"] = true,
+    ["CHudCrosshair"] = true,
+}
+
+
+hook.Add( "HUDShouldDraw", "HideHUD", function( name )if ( hide[ name ] ) then return false end end )

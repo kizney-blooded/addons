@@ -1,11 +1,11 @@
-function GM:PlayerInitialSpawn(ply,bool)
+hook.Add("PlayerInitialSpawn","GoToSpectate",function(ply,bool)
     if IsValid(ply) then
-        timer.Simple(0,function()
+        timer.Simple(0.1,function()
             ply:KillSilent()
-            ply:Spectate(OBS_MODE_NONE)
+            ply:Spectate(OBS_MODE_ROAMING)
         end)
     end
-end
+end)
 
 hook.Add("PlayerDeath","Specatate",function(ply,inf,att)
     if IsValid(ply) then
