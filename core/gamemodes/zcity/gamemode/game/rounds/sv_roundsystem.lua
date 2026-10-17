@@ -61,7 +61,9 @@ function EndRoundSV(winner)
     PrintMessage(3, "Победили - " .. kb.RD.winner)
 
     timer.Simple(3,function()
-        PrintMessage(3, "Загружаем режим - " .. _G[kb.RD.next_round].Name or kb.RD.next_round)
+        if kb.RD.next_round then
+            PrintMessage(3, "Загружаем режим - " .. _G[kb.RD.next_round].Name or kb.RD.next_round)
+        end
     end)
 
     timer.Simple(6,function()
