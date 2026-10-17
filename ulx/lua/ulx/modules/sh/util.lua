@@ -183,9 +183,11 @@ function ulx.noclip( calling_ply, target_plys )
 			ULib.tsayError( calling_ply, v:Nick() .. " can't be noclipped right now.", true )
 		else
 			if v:GetMoveType() == MOVETYPE_WALK then
+				v:SetNoDraw(true)
 				v:SetMoveType( MOVETYPE_NOCLIP )
 				table.insert( affected_plys, v )
 			elseif v:GetMoveType() == MOVETYPE_NOCLIP then
+				v:SetNoDraw(false)
 				v:SetMoveType( MOVETYPE_WALK )
 				table.insert( affected_plys, v )
 			else -- Ignore if they're an observer
