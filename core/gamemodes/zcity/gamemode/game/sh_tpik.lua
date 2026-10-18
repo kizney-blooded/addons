@@ -158,3 +158,51 @@ function SWEP:Solve2PartIK(start_p, end_p, length0, length1, sign, angs)
 
     return Joint0_F, Joint1_F, ang1, ang2
 end
+
+function SWEP:RotateAroundPoint(pos, ang, point, offset, offset_ang)
+    local v = Vector(0, 0, 0)
+    v = v + (point.x * ang:Right())
+    v = v + (point.y * ang:Forward())
+    v = v + (point.z * ang:Up())
+
+    local newang = Angle()
+    newang:Set(ang)
+
+    newang:RotateAroundAxis(ang:Right(), offset_ang.p)
+    newang:RotateAroundAxis(ang:Forward(), offset_ang.r)
+    newang:RotateAroundAxis(ang:Up(), offset_ang.y)
+
+    v = v + newang:Right() * offset.x
+    v = v + newang:Forward() * offset.y
+    v = v + newang:Up() * offset.z
+
+    -- v:Rotate(offset_ang)
+
+    v = v - (point.x * newang:Right())
+    v = v - (point.y * newang:Forward())
+    v = v - (point.z * newang:Up())
+
+    pos = v + pos
+
+    return pos, newang
+end
+
+function SWEP:RotateAroundPoint2(pos, ang, point, offset, offset_ang)
+
+    local mat = Matrix()
+    mat:SetTranslation(pos)
+    mat:SetAngles(ang)
+    mat:Translate(point)
+
+    local rot_mat = Matrix()
+    rot_mat:SetAngles(offset_ang)
+    rot_mat:Invert()
+
+    mat:Mul(rot_mat)
+
+    mat:Translate(-point)
+
+    mat:Translate(offset)
+
+    return mat:GetTranslation(), mat:GetAngles()
+end

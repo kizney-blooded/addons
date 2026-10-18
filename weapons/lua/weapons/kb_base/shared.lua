@@ -11,9 +11,12 @@ SWEP.WorldModel = "models/weapons/arccw_go/v_rif_ak47.mdl"
 
 SWEP.SupportTPIK = true
 
+SWEP.RecoilCamShot = 1.5
+
 SWEP.WorldPos = { Pos = Vector(0.00, 0.00, 0.00), Ang = Angle(30.00, 50.00, 90.00) }
-SWEP.LWorldPos = { Pos = Vector(-9.00, -1.00, 0.00), Ang = Angle(0.00, 0.00, 0.00) }
-SWEP.SightPos = { Pos = Vector(-4.92, -5.05, 1.05), Ang = Angle(0.00, 0.00, 0.00), FOV = 85.00, Speed = 15.00 }
+SWEP.LWorldPos = { Pos = Vector(-1.14, -8.71, 0.00), Ang = Angle(0.00, 0.00, 0.00) }
+SWEP.SightPos = { Pos = Vector(-5.05, -5.05, 1.05), Ang = Angle(0.00, 0.00, 0.00), FOV = 85.00, Speed = 4.00 }
+
 
 
 SWEP.Animations = {
@@ -45,10 +48,19 @@ function SWEP:Deploy()
 end
 
 function SWEP:PrimaryAttack()
+    local owner = self:GetOwner()
+    
+    if IsValid(owner) and owner:IsPlayer() then
+        local vel = owner:GetVelocity():Length2D()
+        local isSprinting = owner:KeyDown(IN_SPEED) and vel > owner:GetWalkSpeed()
+        
+        if isSprinting then return end
+    end
+
     self:PlayAnimation("fire")
     self:TakePrimaryAmmo(1)
 
-    self:ShootBullets()
+    self:ShootBullets(30, 0, 0)
 
     self:SetNextPrimaryFire(CurTime() + self.PrimaryDelay)
 end
