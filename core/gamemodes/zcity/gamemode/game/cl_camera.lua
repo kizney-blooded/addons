@@ -7,36 +7,41 @@ local eyes
 
 hook.Add( "CalcView", "MyCalcView", function( ply, pos, angles, fov )
 
-	if ply:Alive() then
+    if ply:Alive() then
 
-		local rag = ply:GetNWEntity("FakeRagdoll")
-		local target = IsValid(rag) and rag or ply
+        local rag = ply:GetNWEntity("FakeRagdoll")
+        local target = IsValid(rag) and rag or ply
 
-		local get_eyes = target:LookupAttachment("eyes")
-		eyes = target:GetAttachment(get_eyes)
+        local get_eyes = target:LookupAttachment("eyes")
+        eyes = target:GetAttachment(get_eyes)
 
-		if GetViewEntity() != ply then return end
-		
-	end
-
+        if GetViewEntity() != ply then return end
+        
+    end
 
     local ft = FrameTime()
     smooth_angle = LerpAngle(ft * 15, smooth_angle , angles)
 
-	local set_origin = ply:Alive() and eyes.Pos or pos
+    local set_origin = ply:Alive() and eyes and eyes.Pos or pos
+    local set_fov = 100
+
+    local wep = ply:GetActiveWeapon()
+    if IsValid(wep) and wep.calcview_sight then
+        set_origin, smooth_angle, set_fov = wep:calcview_sight(ply, set_origin, smooth_angle, set_fov)
+    end
  
-	local view = {
-		origin = set_origin,
-		angles = smooth_angle,
-		fov = 100,
-		drawviewer = true,
-		znear = 1
-	}
+    local view = {
+        origin = set_origin,
+        angles = smooth_angle,
+        fov = set_fov,
+        drawviewer = true,
+        znear = 1
+    }
 
-	main_origin = view.origin
-	main_angles = view.angles
+    main_origin = view.origin
+    main_angles = view.angles
 
-	return view
+    return view
 end )
 
 hook.Add("Think","HideHead",function()
@@ -60,7 +65,7 @@ end)
 local hide = {
 	["CHudHealth"] = true,
 	["CHudBattery"] = true,
-    ["CHudCrosshair"] = true,
+    --["CHudCrosshair"] = true,
 }
 
 

@@ -28,11 +28,13 @@ if CLIENT then
                     pos = main_origin or EyePos()
                     ang = main_angles or EyeAngles()
                     
-                    local offset = self.LWorldPos
-                    pos = pos + ang:Forward() * offset.Pos.x + ang:Right() * offset.Pos.y + ang:Up() * offset.Pos.z
-                    ang:RotateAroundAxis(ang:Up(), offset.Ang.y)
-                    ang:RotateAroundAxis(ang:Right(), offset.Ang.p)
-                    ang:RotateAroundAxis(ang:Forward(), offset.Ang.r)
+                    local offsetPos = self.CurrentLPos or self.LWorldPos.Pos
+                    local offsetAng = self.CurrentLAng or self.LWorldPos.Ang
+                    
+                    pos = pos + ang:Forward() * offsetPos.x + ang:Right() * offsetPos.y + ang:Up() * offsetPos.z
+                    ang:RotateAroundAxis(ang:Up(), offsetAng.y)
+                    ang:RotateAroundAxis(ang:Right(), offsetAng.p)
+                    ang:RotateAroundAxis(ang:Forward(), offsetAng.r)
                 else
                     local boneid = owner:LookupBone("ValveBiped.Bip01_Spine4")
                     if boneid then

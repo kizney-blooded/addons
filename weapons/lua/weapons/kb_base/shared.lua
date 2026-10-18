@@ -11,8 +11,10 @@ SWEP.WorldModel = "models/weapons/arccw_go/v_rif_ak47.mdl"
 
 SWEP.SupportTPIK = true
 
-SWEP.WorldPos = { Pos = Vector(0, 0, 0), Ang = Angle(30, 50, 90) }
-SWEP.LWorldPos = { Pos = Vector(-9, -1, 0), Ang = Angle(0, 0, 0) }
+SWEP.WorldPos = { Pos = Vector(0.00, 0.00, 0.00), Ang = Angle(30.00, 50.00, 90.00) }
+SWEP.LWorldPos = { Pos = Vector(-9.00, -1.00, 0.00), Ang = Angle(0.00, 0.00, 0.00) }
+SWEP.SightPos = { Pos = Vector(-4.92, -5.05, 1.05), Ang = Angle(0.00, 0.00, 0.00), FOV = 85.00, Speed = 15.00 }
+
 
 SWEP.Animations = {
     ["idle"] = {

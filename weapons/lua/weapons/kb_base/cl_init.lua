@@ -1,27 +1,35 @@
 include("shared.lua")
+include("cl_camera.lua")
 
 concommand.Add("kb_offset", function(ply, cmd, args)
     local wep = ply:GetActiveWeapon()
     
     if not IsValid(wep) or not wep.WorldPos or not wep.LWorldPos then
-        chat.AddText(Color(255, 50, 50), "Возьмите в руки ваше оружие, чтобы настраивать оффсеты!")
         return
     end
 
+    if not wep.SightPos then
+        wep.SightPos = { Pos = Vector(0,0,0), Ang = Angle(0,0,0), FOV = 60, Speed = 15 }
+    end
+
     local frame = vgui.Create("DFrame")
-    frame:SetSize(400, 350)
+    frame:SetSize(600, 400)
     frame:SetTitle("KB Weapon Offset Editor")
     frame:Center()
     frame:MakePopup()
+    
+    frame.OnClose = function()
+        if IsValid(wep) then wep.ForceAim = false end
+    end
 
     local sheet = vgui.Create("DPropertySheet", frame)
     sheet:Dock(FILL)
 
-    local function CreateSliders(parent, offsetTable)
+    local function CreateSliders(parent, offsetTable, isSight)
         local panel = vgui.Create("DPanel", parent)
         panel.Paint = function() end
 
-        local function AddSlider(name, min, max, key, isAngle)
+        local function AddSlider(name, min, max, key, isAngle, isSpecial)
             local slider = vgui.Create("DNumSlider", panel)
             slider:Dock(TOP)
             slider:DockMargin(10, 10, 10, 0)
@@ -30,7 +38,9 @@ concommand.Add("kb_offset", function(ply, cmd, args)
             slider:SetMax(max)
             slider:SetDecimals(2)
             
-            if isAngle then
+            if isSpecial then
+                slider:SetValue(offsetTable[key] or 0)
+            elseif isAngle then
                 if key == "p" then slider:SetValue(offsetTable.Ang.p)
                 elseif key == "y" then slider:SetValue(offsetTable.Ang.y)
                 elseif key == "r" then slider:SetValue(offsetTable.Ang.r) end
@@ -42,7 +52,9 @@ concommand.Add("kb_offset", function(ply, cmd, args)
 
             slider.OnValueChanged = function(self, val)
                 if not IsValid(wep) then return end
-                if isAngle then
+                if isSpecial then
+                    offsetTable[key] = val
+                elseif isAngle then
                     if key == "p" then offsetTable.Ang.p = val
                     elseif key == "y" then offsetTable.Ang.y = val
                     elseif key == "r" then offsetTable.Ang.r = val end
@@ -60,12 +72,32 @@ concommand.Add("kb_offset", function(ply, cmd, args)
         AddSlider("Ang Pitch (Наклон)", -180, 180, "p", true)
         AddSlider("Ang Yaw (Поворот)", -180, 180, "y", true)
         AddSlider("Ang Roll (Вращение)", -180, 180, "r", true)
+        
+        if isSight then
+            AddSlider("FOV (Зум)", 10, 120, "FOV", false, true)
+            AddSlider("Speed (Скорость входа)", 1, 50, "Speed", false, true)
+        end
 
         return panel
     end
 
-    sheet:AddSheet("WorldPos (3rd Person)", CreateSliders(sheet, wep.WorldPos), "icon16/world.png")
-    sheet:AddSheet("LWorldPos (1st Person)", CreateSliders(sheet, wep.LWorldPos), "icon16/user.png")
+    local pnlWorld = CreateSliders(sheet, wep.WorldPos)
+    local pnlLocal = CreateSliders(sheet, wep.LWorldPos)
+    local pnlSight = CreateSliders(sheet, wep.SightPos, true)
+
+    sheet:AddSheet("WorldPos (3rd Person)", pnlWorld, "icon16/world.png")
+    sheet:AddSheet("LWorldPos (1st Person)", pnlLocal, "icon16/user.png")
+    sheet:AddSheet("SightPos (Aiming)", pnlSight, "icon16/zoom.png")
+
+    sheet.OnActiveTabChanged = function(self, old, new)
+        if not IsValid(wep) then return end
+        
+        if IsValid(new) and new:GetPanel() == pnlSight then
+            wep.ForceAim = true
+        else
+            wep.ForceAim = false
+        end
+    end
 
     local printBtn = vgui.Create("DButton", frame)
     printBtn:Dock(BOTTOM)
@@ -82,5 +114,9 @@ concommand.Add("kb_offset", function(ply, cmd, args)
         local lwp = wep.LWorldPos
         print(string.format("SWEP.LWorldPos = { Pos = Vector(%.2f, %.2f, %.2f), Ang = Angle(%.2f, %.2f, %.2f) }", 
             lwp.Pos.x, lwp.Pos.y, lwp.Pos.z, lwp.Ang.p, lwp.Ang.y, lwp.Ang.r))
+            
+        local sp = wep.SightPos
+        print(string.format("SWEP.SightPos = { Pos = Vector(%.2f, %.2f, %.2f), Ang = Angle(%.2f, %.2f, %.2f), FOV = %.2f, Speed = %.2f }", 
+            sp.Pos.x, sp.Pos.y, sp.Pos.z, sp.Ang.p, sp.Ang.y, sp.Ang.r, sp.FOV, sp.Speed))
     end
 end)
