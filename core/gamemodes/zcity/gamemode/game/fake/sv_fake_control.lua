@@ -112,15 +112,22 @@ hook.Add("FakeControl", "Control_fake", function(ply, rag)
 
     local angs = ply:EyeAngles()
 
-    if ply:KeyDown(IN_USE) then
-        local angs = ply:EyeAngles()
-        angs:RotateAroundAxis(angs:Forward(),0)
-        angs:RotateAroundAxis(angs:Up(),-90)
-        angs:RotateAroundAxis(angs:Right(),90)
+    local wep = ply:GetActiveWeapon()
+    local has_tpik = IsValid(wep) and wep.SupportTPIK and wep:GetClass() != "weapon_hands"
 
-        local target_pos = Spine4:GetPos() + (ply:EyeAngles():Forward() * 50) + Vector(0, 0, 0)
-        
-        bone_control(Spine4, 0.1, target_pos, angs, 20 , 10, 0, 0, 1)
+    if ply:KeyDown(IN_USE) or has_tpik then
+        local angs = ply:EyeAngles()
+        angs:RotateAroundAxis(angs:Forward(), 0)
+        angs:RotateAroundAxis(angs:Up(), -90)
+        angs:RotateAroundAxis(angs:Right(), 90)
+
+        local attack_offset = (ply:KeyDown(IN_ATTACK) and ply:KeyDown(IN_ATTACK2)) and ply:EyeAngles():Forward() * 0.5 or Vector()
+
+        local pos_spine4 = Spine4:GetPos() + attack_offset
+        bone_control(Spine4, 0.3, pos_spine4, angs, 1080, 35, 400, 5, 1)
+
+        local pos_spine2 = Spine2:GetPos() + attack_offset
+        bone_control(Spine2, 0.7, pos_spine2, angs, 1080, 60, 200, 10, 1)
 
         if IsValid(Head) then
             local head_angs = ply:EyeAngles()

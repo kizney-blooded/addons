@@ -15,7 +15,16 @@ hook.Add( "CalcView", "MyCalcView", function( ply, pos, angles, fov )
         local get_eyes = target:LookupAttachment("eyes")
         eyes = target:GetAttachment(get_eyes)
 
-        if GetViewEntity() != ply then return end
+        if GetViewEntity() != ply then
+            local view = {
+                origin = pos,
+                angles = angles,
+                fov = fov,
+                drawviewer = true,
+                znear = 1
+            } 
+            return 
+        end
         
     end
 
@@ -77,3 +86,36 @@ local hide = {
 
 
 hook.Add( "HUDShouldDraw", "HideHUD", function( name )if ( hide[ name ] ) then return false end end )
+
+hook.Add("InputMouseApply", "asdasd2", function(cmd, x, y, angle)
+	local ply = LocalPlayer()
+	if not IsValid(ply) or not ply:Alive() then return end
+	
+	local follow = ply:GetNWEntity("FakeRagdoll")
+    
+	if not IsValid(follow) then
+		angle[3] = 0
+		cmd:SetViewAngles(angle)
+		return
+	end
+
+	local att = follow:GetAttachment(follow:LookupAttachment("eyes"))
+	if not att or not istable(att) then return end
+
+	local angRad = math.rad(angle[3])
+	local newX = x * math.cos(angRad) - y * math.sin(angRad)
+	local newY = x * math.sin(angRad) + y * math.cos(angRad)
+
+	angle.pitch = math.Clamp(angle.pitch + newY / 50, -180, 180)
+	angle.yaw = angle.yaw - newX / 50
+
+	if math.abs(angle.pitch) > 89 then
+		angle.roll = angle.roll + 180
+		angle.yaw = angle.yaw + 180
+		angle.pitch = 89 * angle.pitch / math.abs(angle.pitch)
+	end
+
+	cmd:SetViewAngles(angle)
+
+	return true
+end)

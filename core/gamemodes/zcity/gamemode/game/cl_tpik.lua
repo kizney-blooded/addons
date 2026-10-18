@@ -179,7 +179,7 @@ local function TPIKTweenAng(self, key, target, alpha)
     return current
 end
 
-function SWEP:DoTPIK(isdepth)
+function SWEP:DoTPIK(isdepth, target_ent)
 
     local wm = self:GetWM()
     if !IsValid(wm) then return end
@@ -198,6 +198,10 @@ function SWEP:DoTPIK(isdepth)
     end
 
     local ply = self:GetOwner()
+    if !IsValid(ply) then return end
+    
+    local target = IsValid(target_ent) and target_ent or ply
+
     local isLocal = (ply == LocalPlayer())
     local tpikdelay = isLocal and 0 or (1 / math.Clamp(tpik_framerate_notyou, 5, 150))
     local shouldfulltpik = isLocal or (self.LastTPIKTime + tpikdelay <= CurTime())
@@ -210,7 +214,7 @@ function SWEP:DoTPIK(isdepth)
         nolefthand = true
     end
 
-    ply:SetRenderMode(RENDERMODE_TRANSALPHA)
+    target:SetRenderMode(RENDERMODE_TRANSALPHA)
 
     if shouldfulltpik or (self.StillWaiting and self:StillWaiting()) then
         wm:SetupBones()
@@ -230,13 +234,13 @@ function SWEP:DoTPIK(isdepth)
         wm:InvalidateBoneCache()
     end
 
-    ply:SetupBones()
+    target:SetupBones()
 
     local bones = nolefthand and kb.RHIKHandBones or kb.TPIKBones
-    local ply_spine_index = GetCachedBoneIndex(ply, "ValveBiped.Bip01_Spine4")
+    local ply_spine_index = GetCachedBoneIndex(target, "ValveBiped.Bip01_Spine4")
     if !ply_spine_index then return end
     
-    local ply_spine_matrix = entityGetBoneMatrix(ply, ply_spine_index)
+    local ply_spine_matrix = entityGetBoneMatrix(target, ply_spine_index)
     local wmpos = ply_spine_matrix:GetTranslation()
 
     for _, bone in ipairs(bones) do
@@ -245,9 +249,9 @@ function SWEP:DoTPIK(isdepth)
         local wm_bonematrix = entityGetBoneMatrix(wm, wm_boneindex)
         if !wm_bonematrix then continue end
 
-        local ply_boneindex = GetCachedBoneIndex(ply, bone)
+        local ply_boneindex = GetCachedBoneIndex(target, bone)
         if !ply_boneindex then continue end
-        local ply_bonematrix = entityGetBoneMatrix(ply, ply_boneindex)
+        local ply_bonematrix = entityGetBoneMatrix(target, ply_boneindex)
         if !ply_bonematrix then continue end
 
         local bonepos = wm_bonematrix:GetTranslation()
@@ -259,25 +263,25 @@ function SWEP:DoTPIK(isdepth)
 
         ply_bonematrix:SetTranslation(bonepos)
         ply_bonematrix:SetAngles(boneang)
-        entitySetBoneMatrix(ply, ply_boneindex, ply_bonematrix)
-        ply:SetBonePosition(ply_boneindex, bonepos, boneang)
+        entitySetBoneMatrix(target, ply_boneindex, ply_bonematrix)
+        target:SetBonePosition(ply_boneindex, bonepos, boneang)
     end
 
-    local ply_l_upperarm_index = GetCachedBoneIndex(ply, "ValveBiped.Bip01_L_UpperArm")
-    local ply_r_upperarm_index = GetCachedBoneIndex(ply, "ValveBiped.Bip01_R_UpperArm")
-    local ply_l_forearm_index = GetCachedBoneIndex(ply, "ValveBiped.Bip01_L_Forearm")
-    local ply_r_forearm_index = GetCachedBoneIndex(ply, "ValveBiped.Bip01_R_Forearm")
-    local ply_l_hand_index = GetCachedBoneIndex(ply, "ValveBiped.Bip01_L_Hand")
-    local ply_r_hand_index = GetCachedBoneIndex(ply, "ValveBiped.Bip01_R_Hand")
+    local ply_l_upperarm_index = GetCachedBoneIndex(target, "ValveBiped.Bip01_L_UpperArm")
+    local ply_r_upperarm_index = GetCachedBoneIndex(target, "ValveBiped.Bip01_R_UpperArm")
+    local ply_l_forearm_index = GetCachedBoneIndex(target, "ValveBiped.Bip01_L_Forearm")
+    local ply_r_forearm_index = GetCachedBoneIndex(target, "ValveBiped.Bip01_R_Forearm")
+    local ply_l_hand_index = GetCachedBoneIndex(target, "ValveBiped.Bip01_L_Hand")
+    local ply_r_hand_index = GetCachedBoneIndex(target, "ValveBiped.Bip01_R_Hand")
 
     if !ply_l_upperarm_index or !ply_r_upperarm_index or !ply_l_forearm_index or !ply_r_forearm_index or !ply_l_hand_index or !ply_r_hand_index then return end
 
     -- Right Hand
-    local ply_r_upperarm_matrix = entityGetBoneMatrix(ply, ply_r_upperarm_index)
-    local ply_r_forearm_matrix = entityGetBoneMatrix(ply, ply_r_forearm_index)
-    local ply_r_hand_matrix = entityGetBoneMatrix(ply, ply_r_hand_index)
+    local ply_r_upperarm_matrix = entityGetBoneMatrix(target, ply_r_upperarm_index)
+    local ply_r_forearm_matrix = entityGetBoneMatrix(target, ply_r_forearm_index)
+    local ply_r_hand_matrix = entityGetBoneMatrix(target, ply_r_hand_index)
 
-    local limblength = ply:BoneLength(ply_l_forearm_index)
+    local limblength = target:BoneLength(ply_l_forearm_index)
     if !limblength or limblength == 0 then limblength = 12 end
 
     local ply_r_upperarm_pos, ply_r_forearm_pos, ply_r_upperarm_angle, ply_r_forearm_angle
@@ -309,16 +313,16 @@ function SWEP:DoTPIK(isdepth)
     ply_r_forearm_matrix:SetAngles(ply_r_forearm_angle)
     ply_r_hand_matrix:SetTranslation(ply_r_forearm_pos) 
 
-    bone_apply_matrix(ply, ply_r_upperarm_index, ply_r_upperarm_matrix, ply_r_forearm_index)
-    bone_apply_matrix(ply, ply_r_forearm_index, ply_r_forearm_matrix, ply_r_hand_index)
-    bone_apply_matrix(ply, ply_r_hand_index, ply_r_hand_matrix)
+    bone_apply_matrix(target, ply_r_upperarm_index, ply_r_upperarm_matrix, ply_r_forearm_index)
+    bone_apply_matrix(target, ply_r_forearm_index, ply_r_forearm_matrix, ply_r_hand_index)
+    bone_apply_matrix(target, ply_r_hand_index, ply_r_hand_matrix)
 
     if nolefthand then return end
 
     -- Left Hand
-    local ply_l_upperarm_matrix = entityGetBoneMatrix(ply, ply_l_upperarm_index)
-    local ply_l_forearm_matrix = entityGetBoneMatrix(ply, ply_l_forearm_index)
-    local ply_l_hand_matrix = entityGetBoneMatrix(ply, ply_l_hand_index)
+    local ply_l_upperarm_matrix = entityGetBoneMatrix(target, ply_l_upperarm_index)
+    local ply_l_forearm_matrix = entityGetBoneMatrix(target, ply_l_forearm_index)
+    local ply_l_hand_matrix = entityGetBoneMatrix(target, ply_l_hand_index)
 
     local ply_l_upperarm_pos, ply_l_forearm_pos, ply_l_upperarm_angle, ply_l_forearm_angle
 
@@ -344,9 +348,9 @@ function SWEP:DoTPIK(isdepth)
     ply_l_forearm_matrix:SetAngles(ply_l_forearm_angle)
     ply_l_hand_matrix:SetTranslation(ply_l_forearm_pos)
 
-    bone_apply_matrix(ply, ply_l_upperarm_index, ply_l_upperarm_matrix, ply_l_forearm_index)
-    bone_apply_matrix(ply, ply_l_forearm_index, ply_l_forearm_matrix, ply_l_hand_index)
-    bone_apply_matrix(ply, ply_l_hand_index, ply_l_hand_matrix)
+    bone_apply_matrix(target, ply_l_upperarm_index, ply_l_upperarm_matrix, ply_l_forearm_index)
+    bone_apply_matrix(target, ply_l_forearm_index, ply_l_forearm_matrix, ply_l_hand_index)
+    bone_apply_matrix(target, ply_l_hand_index, ply_l_hand_matrix)
 end
 
 hook.Add("PrePlayerDraw", "kb_TPIK_Draw", function(ply, flags)
@@ -359,6 +363,29 @@ hook.Add("PrePlayerDraw", "kb_TPIK_Draw", function(ply, flags)
             if IsValid(wpn) and wpn.DoTPIK then
                 ply:InvalidateBoneCache()
                 wpn:DoTPIK(flags == 134217729)
+            end
+        end
+    end
+end)
+
+hook.Add("PreDrawOpaqueRenderables", "kb_TPIK_Ragdoll_Draw", function(isDrawingDepth, isDrawSkybox)
+    if isDrawSkybox then return end
+
+    for _, ply in player.Iterator() do
+        local rag = ply:GetNWEntity("FakeRagdoll")
+        
+        if IsValid(rag) then
+            local wpn = ply:GetActiveWeapon()
+            if IsValid(wpn) then
+
+                if wpn.DrawWorldModel then
+                    wpn:DrawWorldModel()
+                end
+
+                if wpn.DoTPIK then
+                    rag:InvalidateBoneCache()
+                    wpn:DoTPIK(isDrawingDepth, rag)
+                end
             end
         end
     end

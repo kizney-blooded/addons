@@ -44,18 +44,23 @@ if CLIENT then
                     
                     pos, ang = self:RotateAroundPoint(pos, ang, pivotPoint, offsetPos, finalOffsetAng)
                 else
-                    local boneid = owner:LookupBone("ValveBiped.Bip01_Spine4")
+                    local rag = owner:GetNWEntity("FakeRagdoll")
+                    local target = IsValid(rag) and rag or owner
+                    
+                    local boneid = target:LookupBone("ValveBiped.Bip01_Spine4")
                     if boneid then
-                        local matrix = owner:GetBoneMatrix(boneid)
+                        local matrix = target:GetBoneMatrix(boneid)
                         if matrix then
                             pos = matrix:GetTranslation()
                             ang = matrix:GetAngles()
 
                             local offset = self.WorldPos
-                            pos = pos + ang:Forward() * offset.Pos.x + ang:Right() * offset.Pos.y + ang:Up() * offset.Pos.z
-                            ang:RotateAroundAxis(ang:Up(), offset.Ang.y)
-                            ang:RotateAroundAxis(ang:Right(), offset.Ang.p)
-                            ang:RotateAroundAxis(ang:Forward(), offset.Ang.r)
+                            if offset then
+                                pos = pos + ang:Forward() * offset.Pos.x + ang:Right() * offset.Pos.y + ang:Up() * offset.Pos.z
+                                ang:RotateAroundAxis(ang:Up(), offset.Ang.y)
+                                ang:RotateAroundAxis(ang:Right(), offset.Ang.p)
+                                ang:RotateAroundAxis(ang:Forward(), offset.Ang.r)
+                            end
                         end
                     end
                 end

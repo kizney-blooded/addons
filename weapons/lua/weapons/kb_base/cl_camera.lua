@@ -1,5 +1,6 @@
 hook.Add("PlayerFootstep", "Weapon_Step_Sync", function(ply, pos, foot, sound, volume, rf)
     if ply ~= LocalPlayer() then return end
+    if IsValid(ply:GetNWEntity("FakeRagdoll")) then return end
     
     local wep = ply:GetActiveWeapon()
     if IsValid(wep) and wep.calc_movement_weapon then
@@ -9,6 +10,10 @@ end)
 
 function SWEP:calc_movement_weapon(ply, isAiming)
     if not IsValid(ply) then return Vector(0,0,0), Angle(0,0,0) end
+
+    if IsValid(ply:GetNWEntity("FakeRagdoll")) then 
+        return Vector(0,0,0), Angle(0,0,0) 
+    end
 
     local vel = ply:GetVelocity():Length2D()
     local maxSpeed = ply:GetWalkSpeed()
