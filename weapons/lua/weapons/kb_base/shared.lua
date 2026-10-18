@@ -69,20 +69,7 @@ function SWEP:GetTracerOrigin()
     if att_id > 0 then
         local att = model:GetAttachment(att_id)
         if att then
-            local effectdata = EffectData()
-            effectdata:SetOrigin(att.Pos)
-            effectdata:SetAngles(att.Ang)
-            effectdata:SetEntity(model)
-            effectdata:SetAttachment(att_id)
-            effectdata:SetScale(math.Rand(3, 6))
-
-            local flashEffects = {
-                --"MuzzleFlash",
-                "CS_MuzzleFlash",
-                --"AR2MuzzleFlash"
-            }
-            
-            util.Effect(flashEffects[math.random(1, #flashEffects)], effectdata)
+            ParticleEffectAttach("muzzleflash_1", PATTACH_POINT_FOLLOW, model, att_id)
 
             return att.Pos
         end
@@ -163,6 +150,8 @@ function SWEP:DrawWorldModel()
                 wm:SetRenderAngles(ang)
                 wm:SetPos(pos)
                 wm:SetAngles(ang)
+
+                wm:SetupBones() -- чито
             end
         end
         
