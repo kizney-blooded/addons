@@ -34,8 +34,7 @@ function playermeta:create_fake(vel)
 
     rag:SetCollisionGroup(COLLISION_GROUP_WEAPON)
 
-    -- регдолл не получает физический урон, убрал
-    --rag:AddEFlags(EFL_NO_DAMAGE_FORCES)
+    rag:AddEFlags(EFL_NO_DAMAGE_FORCES)
 
     self:SetNoDraw(true)
     self:SetSolid(SOLID_NONE)

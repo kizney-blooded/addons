@@ -12,6 +12,8 @@ function GM:PlayerSpawn(ply,bool)
     if IsValid(ply) then
         ply:UnSpectate()
 
+        ply:AddEFlags(EFL_NO_DAMAGE_FORCES)
+
         ply:Give('wep_jack_gmod_hands')
     end
 end
