@@ -20,19 +20,26 @@ hook.Add( "CalcView", "MyCalcView", function( ply, pos, angles, fov )
     end
 
     local ft = FrameTime()
-    smooth_angle = LerpAngle(ft * 15, smooth_angle , angles)
+    
+    local punch = ply:GetViewPunchAngles()
+    
+    local base_angles = angles - punch
+    
+    smooth_angle = LerpAngle(ft * 15, smooth_angle, base_angles)
+    
+    local result_angle = smooth_angle + punch
 
     local set_origin = ply:Alive() and eyes and eyes.Pos or pos
     local set_fov = 100
 
     local wep = ply:GetActiveWeapon()
     if IsValid(wep) and wep.calcview_sight then
-        set_origin, smooth_angle, set_fov = wep:calcview_sight(ply, set_origin, smooth_angle, set_fov)
+        set_origin, result_angle, set_fov = wep:calcview_sight(ply, set_origin, result_angle, set_fov)
     end
  
     local view = {
         origin = set_origin,
-        angles = smooth_angle,
+        angles = result_angle,
         fov = set_fov,
         drawviewer = true,
         znear = 1

@@ -97,12 +97,12 @@ function SWEP:DoCameraShake()
 
     local recoil = self.RecoilCamShot or 1.5
 
-    util.ScreenShake(Vector(0,0,0), recoil * 1.5, recoil * 10, 0.25, 0)
+    util.ScreenShake(Vector(0,0,0), recoil * 15, recoil * 15, 0.25, 0)
 
     local punchAngle = Angle(
-        math.Rand(-recoil, -recoil * 0.5), 
-        math.Rand(-recoil * 0.5, recoil * 0.5), 
-        math.Rand(-recoil * 0.2, recoil * 0.2)
+        math.Rand(-recoil, -recoil * 2), 
+        math.Rand(-recoil * 2, recoil * 2), 
+        math.Rand(-recoil * 2, recoil * 2)
     )
     
     owner:ViewPunch(punchAngle)

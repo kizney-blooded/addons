@@ -52,5 +52,9 @@ function SWEP:ShootBullets( damage, num_bullets, aimcone )
         eyeang.y = math.NormalizeAngle(eyeang.y + yaw_recoil)
         
         owner:SetEyeAngles(eyeang)
+
+        if CLIENT then
+            self:DoCameraShake()
+        end
     end
 end
