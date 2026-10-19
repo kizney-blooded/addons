@@ -374,7 +374,7 @@ hook.Add("PreDrawOpaqueRenderables", "kb_TPIK_Ragdoll_Draw", function(isDrawingD
     for _, ply in player.Iterator() do
         local rag = ply:GetNWEntity("FakeRagdoll")
         
-        if IsValid(rag) then
+        if IsValid(rag) or (ply:GetNoDraw() and ply:Alive()) then
             local wpn = ply:GetActiveWeapon()
             if IsValid(wpn) then
 
@@ -383,8 +383,9 @@ hook.Add("PreDrawOpaqueRenderables", "kb_TPIK_Ragdoll_Draw", function(isDrawingD
                 end
 
                 if wpn.DoTPIK then
-                    rag:InvalidateBoneCache()
-                    wpn:DoTPIK(isDrawingDepth, rag)
+                    local target = IsValid(rag) and rag or ply
+                    target:InvalidateBoneCache()
+                    wpn:DoTPIK(isDrawingDepth, target)
                 end
             end
         end

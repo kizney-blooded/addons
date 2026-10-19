@@ -49,6 +49,7 @@ if CLIENT then
                     
                     local boneid = target:LookupBone("ValveBiped.Bip01_Spine4")
                     if boneid then
+                        target:SetupBones()
                         local matrix = target:GetBoneMatrix(boneid)
                         if matrix then
                             pos = matrix:GetTranslation()
