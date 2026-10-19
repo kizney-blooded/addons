@@ -10,6 +10,18 @@ net.Receive("KB_OpenLootBox", function()
     local box_ent = net.ReadEntity()
     local items = net.ReadTable()
 
+    local count = table.Count(items)
+    
+    local btnSize = 75
+    local gap = 1
+    local paddingTop = 40
+    local paddingBottom = 10
+    local paddingSide = 40
+    
+    local contentWidth = (btnSize * count) + (gap * (count - 1))
+    local frameW = math.Clamp(contentWidth + paddingSide, 150, ScrW() - 40) 
+    local frameH = paddingTop + btnSize + paddingBottom
+
     if not IsValid(LootBoxBG) then 
         LootBoxBG = vgui.Create("DPanel")
         LootBoxBG:SetSize(ScrW(), ScrH())
@@ -27,22 +39,33 @@ net.Receive("KB_OpenLootBox", function()
         end
 
         LootBoxFrame = vgui.Create("DFrame", LootBoxBG)
-        LootBoxFrame:SetSize(400, 400)
+        LootBoxFrame:SetSize(frameW, frameH) 
         LootBoxFrame:Center()
-        LootBoxFrame:SetTitle("Лутбокс")
+        LootBoxFrame:SetTitle("") 
         LootBoxFrame:ShowCloseButton(false)
 
-        LootBoxFrame.Scroll = vgui.Create("DScrollPanel", LootBoxFrame)
-        LootBoxFrame.Scroll:Dock(FILL)
+        LootBoxFrame.Paint = function(self, w, h)
+            --draw.RoundedBox(4, 0, 0, w, h, Color(40, 40, 40, 240))  -- для теста
+            draw.SimpleText("Лутбокс", "ChatFont", w / 2, paddingTop / 2, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+        end
+
+        LootBoxFrame.Scroll = vgui.Create("DHorizontalScroller", LootBoxFrame)
+        LootBoxFrame.Scroll:SetSize(contentWidth, btnSize)
+        LootBoxFrame.Scroll:SetPos((frameW - contentWidth) / 2, paddingTop) 
+        LootBoxFrame.Scroll:SetOverlap(-gap) 
     else
-        LootBoxFrame.Scroll:Clear()
+        for _, pnl in pairs(LootBoxFrame.Scroll.Panels or {}) do
+            if IsValid(pnl) then pnl:Remove() end
+        end
+        LootBoxFrame:SetSize(frameW, frameH)
+        LootBoxFrame:Center()
+        LootBoxFrame.Scroll:SetSize(contentWidth, btnSize)
+        LootBoxFrame.Scroll:SetPos((frameW - contentWidth) / 2, paddingTop)
     end
 
     for index, item in pairs(items) do
-        local btn = LootBoxFrame.Scroll:Add("DButton")
-        btn:Dock(TOP)
-        btn:DockMargin(5, 5, 5, 0)
-        btn:SetHeight(50)
+        local btn = vgui.Create("DButton", LootBoxFrame.Scroll)
+        btn:SetSize(btnSize, btnSize)
 
         local wep = weapons.GetStored(item.class)
         local printName = (wep and wep.PrintName) and wep.PrintName or language.GetPhrase(item.class)
@@ -63,15 +86,29 @@ net.Receive("KB_OpenLootBox", function()
 
             timer.Simple(0, function()
                 if IsValid(LootBoxFrame) and IsValid(LootBoxFrame.Scroll) then
-                    local canvas = LootBoxFrame.Scroll:GetCanvas()
-                    if #canvas:GetChildren() == 0 then
+                    local remaining = 0
+                    for _, pnl in pairs(LootBoxFrame.Scroll.Panels or {}) do
+                        if IsValid(pnl) then remaining = remaining + 1 end
+                    end
+                    
+                    if remaining == 0 then
                         if IsValid(LootBoxBG) then
                             LocalPlayer():EmitSound("kb/ui/close_box.wav")
                             LootBoxBG:Remove()
                         end
+                    else
+                        local newContentW = (btnSize * remaining) + (gap * (remaining - 1))
+                        local newFrameW = math.Clamp(newContentW + paddingSide, 150, ScrW() - 40)
+                        
+                        LootBoxFrame:SetSize(newFrameW, frameH)
+                        LootBoxFrame:Center()
+                        LootBoxFrame.Scroll:SetSize(newContentW, btnSize)
+                        LootBoxFrame.Scroll:SetPos((newFrameW - newContentW) / 2, paddingTop)
                     end
                 end
             end)
         end
+
+        LootBoxFrame.Scroll:AddPanel(btn)
     end
 end)
