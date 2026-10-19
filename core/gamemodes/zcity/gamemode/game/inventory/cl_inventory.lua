@@ -5,6 +5,7 @@ LootBoxBG = nil
 LootBoxFrame = nil
 
 local blur = Material("pp/blurscreen")
+local gradient_down = Material("gui/gradient_up")
 
 net.Receive("KB_OpenLootBox", function()
     local box_ent = net.ReadEntity()
@@ -94,8 +95,30 @@ net.Receive("KB_OpenLootBox", function()
             if printName == item.class then
                 printName = item.class 
             end
+
+            local rarityColor = kb.GetItemRarityColor(item.class)
             
-            btn:SetText(printName)
+            btn:SetText("")
+
+            btn.Paint = function(self, w, h)
+                surface.SetDrawColor(rarityColor.r, rarityColor.g, rarityColor.b, 50)
+                surface.SetMaterial(gradient_down)
+                surface.DrawTexturedRect(0, 0, w, h)
+
+                if wep then
+                    local sx, sy = self:LocalToScreen(0, -15)
+                    KB_DrawWeaponSelection(wep, sx, sy, w, h, 255)
+                end
+                
+                draw.SimpleText(printName, "DermaDefault", w / 2, h - 6, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_BOTTOM)
+                
+                surface.SetDrawColor(rarityColor.r, rarityColor.g, rarityColor.b, 50)
+                surface.DrawRect(0, h - 3, w, 3)
+
+                if self:IsHovered() then
+                    draw.RoundedBox(0, 0, 0, w, h, Color(255, 255, 255, 1))
+                end
+            end
             
             btn.DoClick = function()
                 net.Start("KB_ClaimLoot")
