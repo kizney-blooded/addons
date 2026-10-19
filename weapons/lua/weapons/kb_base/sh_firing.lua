@@ -28,16 +28,36 @@ function SWEP:ShootBullets( damage, num_bullets, aimcone )
     local owner = self:GetOwner()
     if not IsValid(owner) then return end
 
+    local src, dir
+    local rag = owner:GetNWEntity("FakeRagdoll")
+
+    if CLIENT then
+        src = main_origin
+        dir = main_angles:Forward()
+    else
+        if IsValid(rag) then
+            local att = rag:GetAttachment(rag:LookupAttachment("eyes"))
+            src = att and att.Pos or owner:GetShootPos()
+        else
+            src = owner:GetShootPos()
+        end
+        dir = owner:EyeAngles():Forward()
+    end
+
     local bullet = {}
     bullet.Num 		= num_bullets
-    bullet.Src 		= owner:GetShootPos()
-    bullet.Dir 		= owner:GetAimVector()
+    bullet.Src 		= src
+    bullet.Dir 		= dir
     bullet.Spread 	= Vector( aimcone, aimcone, 0 )
     bullet.Tracer	= 1
     bullet.TracerName = "Tracer"
     bullet.Force	= 0
     bullet.Damage	= damage
     bullet.AmmoType = "Pistol"
+    
+    if IsValid(rag) then
+        bullet.IgnoreEntity = rag
+    end
  
     owner:FireBullets( bullet )
 
