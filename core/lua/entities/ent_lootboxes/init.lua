@@ -18,7 +18,9 @@ function ENT:Initialize()
         total_chance = total_chance + item.chance
     end
 
-    for i = 1, 3 do
+    local slots_count = kb.Item_in_Lootboxes.slots or 3
+    
+    for i = 1, slots_count do
         local random_val = math.random(1, total_chance)
         local current_sum = 0
         local selected_class = ""

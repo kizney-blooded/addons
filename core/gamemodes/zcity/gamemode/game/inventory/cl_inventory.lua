@@ -13,7 +13,7 @@ net.Receive("KB_OpenLootBox", function()
     local count = table.Count(items)
     
     local btnSize = 75
-    local gap = 1
+    local gap = 0
     local paddingTop = 40
     local paddingBottom = 10
     local paddingSide = 40
@@ -45,7 +45,6 @@ net.Receive("KB_OpenLootBox", function()
         LootBoxFrame:ShowCloseButton(false)
 
         LootBoxFrame.Paint = function(self, w, h)
-            --draw.RoundedBox(4, 0, 0, w, h, Color(40, 40, 40, 240))  -- для теста
             draw.SimpleText("Лутбокс", "ChatFont", w / 2, paddingTop / 2, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
         end
 
@@ -63,52 +62,66 @@ net.Receive("KB_OpenLootBox", function()
         LootBoxFrame.Scroll:SetPos((frameW - contentWidth) / 2, paddingTop)
     end
 
-    for index, item in pairs(items) do
-        local btn = vgui.Create("DButton", LootBoxFrame.Scroll)
-        btn:SetSize(btnSize, btnSize)
-
-        local wep = weapons.GetStored(item.class)
-        local printName = (wep and wep.PrintName) and wep.PrintName or language.GetPhrase(item.class)
-        
-        if printName == item.class then
-            printName = item.class 
+    local remainingItems = 0
+    for _, item in pairs(items) do
+        if not item.claimed then
+            remainingItems = remainingItems + 1
         end
-        
-        btn:SetText(printName)
-        
-        btn.DoClick = function()
-            net.Start("KB_ClaimLoot")
-                net.WriteEntity(box_ent)
-                net.WriteUInt(index, 8) 
-            net.SendToServer()
-            
-            btn:Remove()
+    end
 
-            timer.Simple(0, function()
-                if IsValid(LootBoxFrame) and IsValid(LootBoxFrame.Scroll) then
-                    local remaining = 0
-                    for _, pnl in pairs(LootBoxFrame.Scroll.Panels or {}) do
-                        if IsValid(pnl) then remaining = remaining + 1 end
-                    end
-                    
-                    if remaining == 0 then
-                        if IsValid(LootBoxBG) then
-                            LocalPlayer():EmitSound("kb/ui/close_box.wav")
-                            LootBoxBG:Remove()
-                        end
-                    else
-                        local newContentW = (btnSize * remaining) + (gap * (remaining - 1))
-                        local newFrameW = math.Clamp(newContentW + paddingSide, 150, ScrW() - 40)
-                        
-                        LootBoxFrame:SetSize(newFrameW, frameH)
-                        LootBoxFrame:Center()
-                        LootBoxFrame.Scroll:SetSize(newContentW, btnSize)
-                        LootBoxFrame.Scroll:SetPos((newFrameW - newContentW) / 2, paddingTop)
+    for index, item in ipairs(items) do
+        local slotPanel = vgui.Create("DPanel", LootBoxFrame.Scroll)
+        slotPanel:SetSize(btnSize, btnSize)
+        slotPanel.Paint = function(self, w, h)
+            draw.RoundedBox(0, 0, 0, w, h, Color(39, 39, 39))
+
+            surface.SetDrawColor(73, 73, 73)
+            surface.DrawLine(0, 0, w, 0)
+            surface.DrawLine(0, 0, 0, h)
+
+            surface.SetDrawColor(15, 15, 15, 255)
+            surface.DrawLine(0, h - 1, w, h - 1) 
+            surface.DrawLine(w - 1, 0, w - 1, h)
+        end
+
+        if not item.claimed then
+            local btn = vgui.Create("DButton", slotPanel)
+            btn:SetSize(btnSize, btnSize)
+
+            local wep = weapons.GetStored(item.class)
+            local printName = (wep and wep.PrintName) and wep.PrintName or language.GetPhrase(item.class)
+            
+            if printName == item.class then
+                printName = item.class 
+            end
+            
+            btn:SetText(printName)
+            
+            btn.DoClick = function()
+                net.Start("KB_ClaimLoot")
+                    net.WriteEntity(box_ent)
+                    net.WriteUInt(index, 8) 
+                net.SendToServer()
+
+                if LocalPlayer():HasWeapon(item.class) then
+                    --btn:SetEnabled(false)
+                else
+                    btn:Remove()
+                
+                    remainingItems = remainingItems - 1
+
+                    if remainingItems <= 0 then
+                        timer.Simple(0.1, function() 
+                            if IsValid(LootBoxBG) then
+                                LocalPlayer():EmitSound("kb/ui/close_box.wav")
+                                LootBoxBG:Remove()
+                            end
+                        end)
                     end
                 end
-            end)
+            end
         end
 
-        LootBoxFrame.Scroll:AddPanel(btn)
+        LootBoxFrame.Scroll:AddPanel(slotPanel)
     end
 end)
