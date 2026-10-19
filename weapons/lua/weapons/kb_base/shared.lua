@@ -11,12 +11,26 @@ SWEP.WorldModel = "models/weapons/arccw_go/v_rif_ak47.mdl"
 
 SWEP.SupportTPIK = true
 
+SWEP.DrawWeaponInfoBox = false
+
+SWEP.Slot = 2
+
 SWEP.RecoilCamShot = 1.5
 
 SWEP.WorldPos = { Pos = Vector(0.00, 0.00, 0.00), Ang = Angle(30.00, 50.00, 90.00) }
 SWEP.LWorldPos = { Pos = Vector(-1.14, -8.71, 0.00), Ang = Angle(0.00, 0.00, 0.00) }
 SWEP.SightPos = { Pos = Vector(-5.05, -5.05, 1.05), Ang = Angle(0.00, 0.00, 0.00), FOV = 85.00, Speed = 4.00 }
 
+SWEP.IconPos = {
+    Pos = Vector(15, 18, -2),
+    Ang = Angle(0, -90, -10),
+    FOV = 135
+}
+
+
+function SWEP:DrawWeaponSelection(x, y, wide, tall, alpha)
+    KB_DrawWeaponSelection(self, x, y, wide, tall, alpha)
+end
 
 
 SWEP.Animations = {
