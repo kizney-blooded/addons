@@ -28,7 +28,7 @@ local function GetAimedEntity()
 
     local ent = tr.Entity
 
-    print(ent)
+    --print(ent)
 
     if not IsValid(ent) or blacklist[ent:GetClass()] or string.StartWith(ent:GetClass(), "prop_vehicle") then return nil end
 

@@ -26,7 +26,7 @@ function KB_DrawWeaponSelection(wep, x, y, wide, tall, alpha)
         
         render.SuppressEngineLighting(true)
         render.SetLightingOrigin(Vector(0, 0, 0))
-        render.ResetModelLighting(1, 1, 1)
+        render.ResetModelLighting(4, 4, 4)
         
         render.SetModelLighting(BOX_TOP, 1, 1, 1)
         render.SetModelLighting(BOX_FRONT, 1, 1, 1)
