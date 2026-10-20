@@ -28,7 +28,7 @@ function SWEP:calc_movement_weapon(ply, isAiming)
     self.StepImpulse = Lerp(ft * 15, self.StepImpulse, 0)
 
     local speedRatio = math.Clamp(vel / maxSpeed, 0, 2)
-    local isSprinting = ply:KeyDown(IN_SPEED) and vel > maxSpeed and not isAiming
+    local isSprinting = ply:KeyDown(IN_SPEED) and vel > (maxSpeed + 10) and not isAiming
 
     local breathMult = isAiming and 0.1 or 1.0
     local walkMult = isAiming and 0.1 or 1.0
@@ -72,8 +72,8 @@ function SWEP:calcview_sight(ply, pos, ang, fov)
     if not self.SightPos or not self.LWorldPos then return pos, ang, fov end
 
     local vel = ply:GetVelocity():Length2D()
-    local isSprinting = ply:KeyDown(IN_SPEED) and vel > ply:GetWalkSpeed()
-
+    local isSprinting = ply:KeyDown(IN_SPEED) and vel > (ply:GetWalkSpeed() + 10)
+    
     local isAiming = (ply:KeyDown(IN_ATTACK2) or self.ForceAim) and not isSprinting
     
     local speed = self.SightPos.Speed or 15
