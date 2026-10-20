@@ -2,6 +2,8 @@ local DRAW_DISTANCE = 90
 
 local blacklist = {
     ["prop_physics"] = true,
+    ["player"] = true,
+    ["prop_ragdoll"] = true,
 }
 
 local ent_names = {

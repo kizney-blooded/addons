@@ -28,14 +28,34 @@ net.Receive("KB_OpenLootBox", function()
         LootBoxBG:SetSize(ScrW(), ScrH())
         LootBoxBG:SetPos(0, 0)
         LootBoxBG:MakePopup()
+        
+        LootBoxBG.uiAlpha = 0
+        LootBoxBG:SetAlpha(0)
+        LootBoxBG.isClosing = false
+
+        LootBoxBG.Close = function(self)
+            if self.isClosing then return end
+            self.isClosing = true
+            LocalPlayer():EmitSound("kb/ui/close_box.wav")
+        end
+
         LootBoxBG.Paint = function(self, w, h)
             draw.RoundedBox(0, 0, 0, w, h, Color(0, 0, 0, 180))
         end
 
+        LootBoxBG.Think = function(self)
+            local targetAlpha = self.isClosing and 0 or 255
+            self.uiAlpha = Lerp(FrameTime() * 10, self.uiAlpha, targetAlpha)
+            self:SetAlpha(self.uiAlpha)
+
+            if self.isClosing and self.uiAlpha < 5 then
+                self:Remove()
+            end
+        end
+
         LootBoxBG.OnKeyCodePressed = function(self, key)
             if key == KEY_W or key == KEY_A or key == KEY_S or key == KEY_D then
-                LocalPlayer():EmitSound("kb/ui/close_box.wav")
-                self:Remove()
+                self:Close()
             end
         end
 
@@ -46,7 +66,8 @@ net.Receive("KB_OpenLootBox", function()
         LootBoxFrame:ShowCloseButton(false)
 
         LootBoxFrame.Paint = function(self, w, h)
-            draw.SimpleText("Лутбокс", "ChatFont", w / 2, paddingTop / 2, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+            local title = IsValid(box_ent) and box_ent.PrintName or "Лутбокс"
+            draw.SimpleText(title, "ChatFont", w / 2, paddingTop / 2, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
         end
 
         LootBoxFrame.Scroll = vgui.Create("DHorizontalScroller", LootBoxFrame)
@@ -54,6 +75,7 @@ net.Receive("KB_OpenLootBox", function()
         LootBoxFrame.Scroll:SetPos((frameW - contentWidth) / 2, paddingTop) 
         LootBoxFrame.Scroll:SetOverlap(-gap) 
     else
+        LootBoxBG.isClosing = false
         for _, pnl in pairs(LootBoxFrame.Scroll.Panels or {}) do
             if IsValid(pnl) then pnl:Remove() end
         end
@@ -73,6 +95,32 @@ net.Receive("KB_OpenLootBox", function()
     for index, item in ipairs(items) do
         local slotPanel = vgui.Create("DPanel", LootBoxFrame.Scroll)
         slotPanel:SetSize(btnSize, btnSize)
+
+        slotPanel.RealSetPos = slotPanel.SetPos
+        
+        local centerX = (contentWidth / 2) - (btnSize / 2)
+        slotPanel.CurrentX = centerX
+        slotPanel:RealSetPos(centerX, 0)
+        
+        slotPanel.SetPos = function(self, x, y)
+            self.TargetX = x
+            self.TargetY = y
+        end
+
+        slotPanel.Think = function(self)
+            local target_x = LootBoxBG.isClosing and centerX or self.TargetX
+            
+            if target_x and self.TargetY then
+                self.CurrentX = Lerp(FrameTime() * 10, self.CurrentX, target_x)
+                
+                if math.abs(target_x - self.CurrentX) < 0.5 then
+                    self.CurrentX = target_x
+                end
+                
+                self:RealSetPos(self.CurrentX, self.TargetY)
+            end
+        end
+
         slotPanel.Paint = function(self, w, h)
             draw.RoundedBox(0, 0, 0, w, h, Color(39, 39, 39))
 
@@ -136,8 +184,7 @@ net.Receive("KB_OpenLootBox", function()
                     if remainingItems <= 0 then
                         timer.Simple(0.1, function() 
                             if IsValid(LootBoxBG) then
-                                LocalPlayer():EmitSound("kb/ui/close_box.wav")
-                                LootBoxBG:Remove()
+                                LootBoxBG:Close()
                             end
                         end)
                     end
