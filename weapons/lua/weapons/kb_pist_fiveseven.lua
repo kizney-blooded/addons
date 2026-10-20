@@ -9,7 +9,7 @@ SWEP.WorldModel = "models/weapons/arccw_go/v_pist_fiveseven.mdl"
 
 SWEP.HoldType = "rpg"
 
-SWEP.Slot = 2
+SWEP.Slot = 1
 
 SWEP.Primary.Automatic = false
 SWEP.PrimaryDelay = 0.09
