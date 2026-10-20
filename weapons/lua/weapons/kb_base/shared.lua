@@ -5,14 +5,14 @@ SWEP.Category = "Weapons - Secondary"
 SWEP.Spawnable = false
 SWEP.AdminOnly = false
 
---SWEP.Slot = 2
+SWEP.Slot = 2
 SWEP.SupportTPIK = true
 SWEP.DrawWeaponInfoBox = false
 
 
---[[SWEP.HoldType = "rpg"
+SWEP.HoldType = "rpg"
 
-SWEP.WorldModel = "models/weapons/arccw_go/v_rif_ak47.mdl"
+--[[SWEP.WorldModel = "models/weapons/arccw_go/v_rif_ak47.mdl"
 
 SWEP.Primary.ClipSize = 30
 SWEP.Primary.DefaultClip = 30
@@ -32,31 +32,7 @@ SWEP.IconPos = {
     FOV = 135
 }
 
-SWEP.Animations = {
-    ["idle"] = {
-        anim = "ak47_draw", 
-        mult = 1, 
-        sounds = {
-            { sound = "ttt/holster.wav", time = 0.5 },
-            { sound = "ttt/draw.wav", time = 1 },
-        }
-    },
-    ["fire"] = {
-        anim = "ak47_fire1", 
-        mult = 1, 
-        sounds = {
-            { sound = "arccw_go/ak47/ak47-1.wav", time = 0 },
-        }
-    },
-    ["reload"] = {
-        anim = "ak47_reload",
-        mult = 1,
-        sounds = {
-            { sound = "arccw_go/ak47/ak47_clipout.wav", time = 0.2 },
-            { sound = "arccw_go/ak47/ak47_clipin.wav", time = 1.0 },
-        }
-    }
-}
+SWEP.Animations = {}
 
 SWEP.Primary.Automatic = true
 SWEP.PrimaryDelay = 0.09--]]
