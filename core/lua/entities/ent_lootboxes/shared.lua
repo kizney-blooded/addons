@@ -8,9 +8,7 @@ kb = kb or {}
 
 kb.Item_in_Lootboxes = {
     slots = 5,
-    { class = "kb_base", chance = 50 },
-    { class = "weapon_smg1", chance = 30 },
-    { class = "weapon_shotgun", chance = 15 },
-    { class = "weapon_crowbar", chance = 10 },
+    { class = "kb_rif_ak47", chance = 50 },
+    { class = "kb_pist_fiveseven", chance = 50 },
     { class = "weapon_frag", chance = 5 }
 }
