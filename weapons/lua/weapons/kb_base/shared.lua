@@ -59,6 +59,7 @@ include("sh_firing.lua")
 
 function SWEP:Deploy()
     self:PlayAnimation("idle")
+    return true
 end
 
 function SWEP:PrimaryAttack()
