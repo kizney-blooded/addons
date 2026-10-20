@@ -180,6 +180,11 @@ local function TPIKTweenAng(self, key, target, alpha)
 end
 
 function SWEP:DoTPIK(isdepth, target_ent)
+    local wpn = LocalPlayer():GetActiveWeapon()
+
+    if wpn.DrawWorldModel then
+        wpn:DrawWorldModel()
+    end
 
     local wm = self:GetWM()
     if !IsValid(wm) then return end
@@ -377,10 +382,6 @@ hook.Add("PreDrawOpaqueRenderables", "kb_TPIK_Ragdoll_Draw", function(isDrawingD
         if IsValid(rag) or (ply:GetNoDraw() and ply:Alive()) then
             local wpn = ply:GetActiveWeapon()
             if IsValid(wpn) then
-
-                if wpn.DrawWorldModel then
-                    wpn:DrawWorldModel()
-                end
 
                 if wpn.DoTPIK then
                     local target = IsValid(rag) and rag or ply
