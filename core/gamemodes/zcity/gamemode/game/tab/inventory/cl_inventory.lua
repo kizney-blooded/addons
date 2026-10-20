@@ -1,11 +1,70 @@
-if IsValid(LootBoxBG) then LootBoxBG:Remove() end
-if IsValid(LootBoxFrame) then LootBoxFrame:Remove() end
+if IsValid(main_inventory) then main_inventory:Remove() end
+if IsValid(lootbox_frame) then lootbox_frame:Remove() end
 
-LootBoxBG = nil
-LootBoxFrame = nil
+main_inventory = nil
+lootbox_frame = nil
 
 local blur = Material("pp/blurscreen")
 local gradient_down = Material("gui/gradient_up")
+
+function Frame_Inventory()
+    if IsValid(main_inventory) then return end
+
+    main_inventory = vgui.Create("DPanel")
+    main_inventory:SetSize(ScrW(), ScrH())
+    main_inventory:SetPos(0, 0)
+    main_inventory:MakePopup()
+    main_inventory:SetKeyboardInputEnabled(false)
+    
+    main_inventory.uiAlpha = 0
+    main_inventory:SetAlpha(0)
+    main_inventory.isClosing = false
+
+    local modelWidth = 400
+    local plyModel = vgui.Create("DModelPanel", main_inventory)
+    plyModel:SetSize(modelWidth, ScrH() * 0.9)
+    plyModel:SetPos(50, ScrH() * 0.05) 
+    plyModel:SetModel(LocalPlayer():GetModel())
+    
+    if IsValid(plyModel.Entity) then
+        plyModel.Entity:SetSkin(LocalPlayer():GetSkin() or 0)
+        for _, bg in pairs(LocalPlayer():GetBodyGroups()) do
+            plyModel.Entity:SetBodygroup(bg.id, LocalPlayer():GetBodygroup(bg.id))
+        end
+        
+        local mn, mx = plyModel.Entity:GetRenderBounds()
+        local size = math.max(math.abs(mn.x) + math.abs(mx.x), math.abs(mn.y) + math.abs(mx.y), math.abs(mn.z) + math.abs(mx.z))
+        plyModel:SetFOV(45)
+        plyModel:SetCamPos(Vector(size * 0.8, 0, size * 0.45)) 
+        plyModel:SetLookAt(Vector(0, 0, (mn.z + mx.z) * 0.5))
+    end
+
+    plyModel.LayoutEntity = function() return false end
+
+    main_inventory.Paint = function(self, w, h)
+        draw.RoundedBox(0, 0, 0, w, h, Color(0, 0, 0, 180))
+    end
+
+    main_inventory.Think = function(self)
+        local targetAlpha = self.isClosing and 0 or 255
+        self.uiAlpha = Lerp(FrameTime() * 15, self.uiAlpha, targetAlpha)
+        self:SetAlpha(self.uiAlpha)
+
+        if self.isClosing and self.uiAlpha < 5 then
+            self:Remove()
+        end
+    end
+
+    main_inventory.OnKeyCodePressed = function(self, key)
+        if key == KEY_W or key == KEY_A or key == KEY_S or key == KEY_D then
+            if IsValid(lootbox_frame) then
+                lootbox_frame:Close()
+            else
+                --self.isClosing = true
+            end
+        end
+    end
+end
 
 net.Receive("KB_OpenLootBox", function()
     local box_ent = net.ReadEntity()
@@ -23,27 +82,32 @@ net.Receive("KB_OpenLootBox", function()
     local frameW = math.Clamp(contentWidth + paddingSide, 150, ScrW() - 40) 
     local frameH = paddingTop + btnSize + paddingBottom
 
-    if not IsValid(LootBoxBG) then 
-        LootBoxBG = vgui.Create("DPanel")
-        LootBoxBG:SetSize(ScrW(), ScrH())
-        LootBoxBG:SetPos(0, 0)
-        LootBoxBG:MakePopup()
-        
-        LootBoxBG.uiAlpha = 0
-        LootBoxBG:SetAlpha(0)
-        LootBoxBG.isClosing = false
+    Frame_Inventory()
 
-        LootBoxBG.Close = function(self)
+    if not IsValid(lootbox_frame) then 
+        main_inventory:SetKeyboardInputEnabled(true)
+
+        lootbox_frame = vgui.Create("DFrame", main_inventory)
+        lootbox_frame:SetSize(frameW, frameH) 
+        lootbox_frame:Center()
+        lootbox_frame:SetTitle("") 
+        lootbox_frame:ShowCloseButton(false)
+
+        lootbox_frame.uiAlpha = 0
+        lootbox_frame:SetAlpha(0)
+        lootbox_frame.isClosing = false
+
+        lootbox_frame.Close = function(self)
             if self.isClosing then return end
             self.isClosing = true
             LocalPlayer():EmitSound("kb/ui/close_box.wav")
+
+            if IsValid(main_inventory) then
+                main_inventory.isClosing = true
+            end
         end
 
-        LootBoxBG.Paint = function(self, w, h)
-            draw.RoundedBox(0, 0, 0, w, h, Color(0, 0, 0, 180))
-        end
-
-        LootBoxBG.Think = function(self)
+        lootbox_frame.Think = function(self)
             local targetAlpha = self.isClosing and 0 or 255
             self.uiAlpha = Lerp(FrameTime() * 10, self.uiAlpha, targetAlpha)
             self:SetAlpha(self.uiAlpha)
@@ -53,36 +117,24 @@ net.Receive("KB_OpenLootBox", function()
             end
         end
 
-        LootBoxBG.OnKeyCodePressed = function(self, key)
-            if key == KEY_W or key == KEY_A or key == KEY_S or key == KEY_D then
-                self:Close()
-            end
-        end
-
-        LootBoxFrame = vgui.Create("DFrame", LootBoxBG)
-        LootBoxFrame:SetSize(frameW, frameH) 
-        LootBoxFrame:Center()
-        LootBoxFrame:SetTitle("") 
-        LootBoxFrame:ShowCloseButton(false)
-
-        LootBoxFrame.Paint = function(self, w, h)
+        lootbox_frame.Paint = function(self, w, h)
             local title = IsValid(box_ent) and box_ent.PrintName or "Лутбокс"
             draw.SimpleText(title, "ChatFont", w / 2, paddingTop / 2, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
         end
 
-        LootBoxFrame.Scroll = vgui.Create("DHorizontalScroller", LootBoxFrame)
-        LootBoxFrame.Scroll:SetSize(contentWidth, btnSize)
-        LootBoxFrame.Scroll:SetPos((frameW - contentWidth) / 2, paddingTop) 
-        LootBoxFrame.Scroll:SetOverlap(-gap) 
+        lootbox_frame.Scroll = vgui.Create("DHorizontalScroller", lootbox_frame)
+        lootbox_frame.Scroll:SetSize(contentWidth, btnSize)
+        lootbox_frame.Scroll:SetPos((frameW - contentWidth) / 2, paddingTop) 
+        lootbox_frame.Scroll:SetOverlap(-gap) 
     else
-        LootBoxBG.isClosing = false
-        for _, pnl in pairs(LootBoxFrame.Scroll.Panels or {}) do
+        lootbox_frame.isClosing = false
+        for _, pnl in pairs(lootbox_frame.Scroll.Panels or {}) do
             if IsValid(pnl) then pnl:Remove() end
         end
-        LootBoxFrame:SetSize(frameW, frameH)
-        LootBoxFrame:Center()
-        LootBoxFrame.Scroll:SetSize(contentWidth, btnSize)
-        LootBoxFrame.Scroll:SetPos((frameW - contentWidth) / 2, paddingTop)
+        lootbox_frame:SetSize(frameW, frameH)
+        lootbox_frame:Center()
+        lootbox_frame.Scroll:SetSize(contentWidth, btnSize)
+        lootbox_frame.Scroll:SetPos((frameW - contentWidth) / 2, paddingTop)
     end
 
     local remainingItems = 0
@@ -93,7 +145,7 @@ net.Receive("KB_OpenLootBox", function()
     end
 
     for index, item in ipairs(items) do
-        local slotPanel = vgui.Create("DPanel", LootBoxFrame.Scroll)
+        local slotPanel = vgui.Create("DPanel", lootbox_frame.Scroll)
         slotPanel:SetSize(btnSize, btnSize)
 
         slotPanel.RealSetPos = slotPanel.SetPos
@@ -108,7 +160,7 @@ net.Receive("KB_OpenLootBox", function()
         end
 
         slotPanel.Think = function(self)
-            local target_x = LootBoxBG.isClosing and centerX or self.TargetX
+            local target_x = (IsValid(lootbox_frame) and lootbox_frame.isClosing) and centerX or self.TargetX
             
             if target_x and self.TargetY then
                 self.CurrentX = Lerp(FrameTime() * 10, self.CurrentX, target_x)
@@ -174,17 +226,15 @@ net.Receive("KB_OpenLootBox", function()
                     net.WriteUInt(index, 8) 
                 net.SendToServer()
 
-                if LocalPlayer():HasWeapon(item.class) then
-                    --btn:SetEnabled(false)
-                else
+                if not LocalPlayer():HasWeapon(item.class) then
                     btn:Remove()
                 
                     remainingItems = remainingItems - 1
 
                     if remainingItems <= 0 then
                         timer.Simple(0.1, function() 
-                            if IsValid(LootBoxBG) then
-                                LootBoxBG:Close()
+                            if IsValid(lootbox_frame) then
+                                lootbox_frame:Close()
                             end
                         end)
                     end
@@ -192,6 +242,6 @@ net.Receive("KB_OpenLootBox", function()
             end
         end
 
-        LootBoxFrame.Scroll:AddPanel(slotPanel)
+        lootbox_frame.Scroll:AddPanel(slotPanel)
     end
 end)
