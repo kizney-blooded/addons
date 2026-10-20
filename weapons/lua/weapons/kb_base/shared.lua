@@ -2,10 +2,15 @@ SWEP.Base = "weapon_base"
 
 SWEP.PrintName = "KB Weapon base"
 SWEP.Category = "Weapons - Secondary"
-SWEP.Spawnable = true
+SWEP.Spawnable = false
 SWEP.AdminOnly = false
 
-SWEP.HoldType = "rpg"
+--SWEP.Slot = 2
+SWEP.SupportTPIK = true
+SWEP.DrawWeaponInfoBox = false
+
+
+--[[SWEP.HoldType = "rpg"
 
 SWEP.WorldModel = "models/weapons/arccw_go/v_rif_ak47.mdl"
 
@@ -14,12 +19,6 @@ SWEP.Primary.DefaultClip = 30
 SWEP.Primary.Ammo = "ar2"
 
 SWEP.ReloadTime = 2.0
-
-SWEP.SupportTPIK = true
-
-SWEP.DrawWeaponInfoBox = false
-
-SWEP.Slot = 2
 
 SWEP.RecoilCamShot = 1.5
 
@@ -32,12 +31,6 @@ SWEP.IconPos = {
     Ang = Angle(0, -90, -10),
     FOV = 135
 }
-
-
-function SWEP:DrawWeaponSelection(x, y, wide, tall, alpha)
-    KB_DrawWeaponSelection(self, x, y, wide, tall, alpha)
-end
-
 
 SWEP.Animations = {
     ["idle"] = {
@@ -66,7 +59,11 @@ SWEP.Animations = {
 }
 
 SWEP.Primary.Automatic = true
-SWEP.PrimaryDelay = 0.09
+SWEP.PrimaryDelay = 0.09--]]
+
+function SWEP:DrawWeaponSelection(x, y, wide, tall, alpha)
+    KB_DrawWeaponSelection(self, x, y, wide, tall, alpha)
+end
 
 include("sh_worldmodel.lua")
 include("sh_firing.lua")
