@@ -9,6 +9,12 @@ SWEP.HoldType = "rpg"
 
 SWEP.WorldModel = "models/weapons/arccw_go/v_rif_ak47.mdl"
 
+SWEP.Primary.ClipSize = 30
+SWEP.Primary.DefaultClip = 30
+SWEP.Primary.Ammo = "ar2"
+
+SWEP.ReloadTime = 2.0
+
 SWEP.SupportTPIK = true
 
 SWEP.DrawWeaponInfoBox = false
@@ -48,6 +54,14 @@ SWEP.Animations = {
         sounds = {
             { sound = "arccw_go/ak47/ak47-1.wav", time = 0 },
         }
+    },
+    ["reload"] = {
+        anim = "ak47_reload",
+        mult = 1,
+        sounds = {
+            { sound = "arccw_go/ak47/ak47_clipout.wav", time = 0.2 },
+            { sound = "arccw_go/ak47/ak47_clipin.wav", time = 1.0 },
+        }
     }
 }
 
@@ -64,6 +78,12 @@ end
 
 function SWEP:PrimaryAttack()
     local owner = self:GetOwner()
+
+    if self:Clip1() <= 0 then
+        self:EmitSound("Weapon_Pistol.Empty")
+        self:SetNextPrimaryFire(CurTime() + 0.2)
+        return
+    end
     
     if IsValid(owner) and owner:IsPlayer() then
         local vel = owner:GetVelocity():Length2D()
@@ -81,4 +101,29 @@ function SWEP:PrimaryAttack()
 end
 
 function SWEP:SecondaryAttack()
+end
+
+function SWEP:Reload()
+    local owner = self:GetOwner()
+    if not IsValid(owner) then return end
+
+    if self:Clip1() >= self.Primary.ClipSize or owner:GetAmmoCount(self.Primary.Ammo) <= 0 then return end
+    
+    if self:GetNextPrimaryFire() > CurTime() then return end
+
+    self:PlayAnimation("reload")
+
+    self:SetNextPrimaryFire(CurTime() + self.ReloadTime)
+    
+    timer.Simple(self.ReloadTime * 0.8, function()
+        if IsValid(self) and IsValid(owner) and owner:GetActiveWeapon() == self then
+            local ammoNeeded = self.Primary.ClipSize - self:Clip1()
+            local ammoAvailable = owner:GetAmmoCount(self.Primary.Ammo)
+            
+            local ammoToLoad = math.min(ammoNeeded, ammoAvailable)
+            
+            self:SetClip1(self:Clip1() + ammoToLoad)
+            owner:RemoveAmmo(ammoToLoad, self.Primary.Ammo)
+        end
+    end)
 end
