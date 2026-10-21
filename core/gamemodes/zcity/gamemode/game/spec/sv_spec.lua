@@ -15,6 +15,23 @@ hook.Add("PlayerDeath","Specatate",function(ply,inf,att)
     end
 end)
 
-hook.Add("PlayerDeathThink","DisablePlayerDeathThink",function(ply)
-    return false
+-- construct
+hook.Add("PlayerDeath", "CustomRespawn_Death", function(victim, inflictor, attacker)
+    if kb.RD.current_round == "constract" then 
+        local respawnTime = CurTime() + 30
+        victim:SetNWFloat("RespawnTime", respawnTime) 
+        victim.NextRespawnTime = respawnTime 
+    end
+end)
+
+hook.Add("PlayerDeathThink", "CustomRespawn_Think", function(ply)
+    if kb.RD.current_round == "constract" then 
+        if ply.NextRespawnTime and CurTime() >= ply.NextRespawnTime then
+            ply:Spawn()
+            ply.NextRespawnTime = nil
+            return true
+        end
+    end
+    
+    return false 
 end)
