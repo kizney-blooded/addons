@@ -57,7 +57,7 @@ net.Receive("KB_ClaimLoot", function(len, ply)
 end)
 
 local blacklist = {
-
+    ["wep_jack_gmod_hands"] = true
 }
 
 
