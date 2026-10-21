@@ -30,7 +30,7 @@ local function GetAimedEntity()
 
     --print(ent)
 
-    if not IsValid(ent) or blacklist[ent:GetClass()] or string.StartWith(ent:GetClass(), "prop_vehicle") then return nil end
+    if not IsValid(ent) or blacklist[ent:GetClass()] or string.StartWith(ent:GetClass(), "prop_vehicle") or string.StartWith(ent:GetClass(), "gtav_") then return nil end
 
     return ent
 end
