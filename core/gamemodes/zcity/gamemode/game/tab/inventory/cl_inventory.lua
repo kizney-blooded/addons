@@ -7,6 +7,12 @@ lootbox_frame = nil
 local blur = Material("pp/blurscreen")
 local gradient_down = Material("gui/gradient_up")
 
+local weapon_blacklist = {
+    ["weapon_hands"] = true,
+    ["weapon_physcannon"] = true,
+    ["gmod_tool"] = true
+}
+
 function Frame_Inventory()
     if IsValid(main_inventory) then return end
 
@@ -44,14 +50,90 @@ function Frame_Inventory()
 
     plyModel.DrawModel = function(self)
         local alpha = main_inventory:GetAlpha() / 255
-        
+
         render.SetBlend(alpha)
-        
+
         if IsValid(self.Entity) then
             self.Entity:DrawModel()
         end
-        
+
         render.SetBlend(1)
+    end
+
+    local invPanel = vgui.Create("DPanel", main_inventory)
+    local slotSize = 75
+    local spacing = 0
+    local cols = 8
+    
+    local invW = cols * slotSize + (cols - 1) * spacing
+    local invH = slotSize
+    
+    invPanel:SetSize(invW, invH)
+    invPanel:SetPos((ScrW() - invW) / 2, ScrH() - invH - 40)
+    invPanel.Paint = function() end 
+
+    local weps = LocalPlayer():GetWeapons()
+    local valid_weps = {}
+    
+    for _, wep in ipairs(weps) do
+        if IsValid(wep) and not weapon_blacklist[wep:GetClass()] then
+            table.insert(valid_weps, wep)
+        end
+    end
+
+    for i = 1, 8 do
+        local slotPanel = vgui.Create("DPanel", invPanel)
+        slotPanel:SetSize(slotSize, slotSize)
+        slotPanel:SetPos((i - 1) * (slotSize + spacing), 0)
+        
+        local wep = valid_weps[i]
+        
+        slotPanel.Paint = function(self, w, h)
+            draw.RoundedBox(0, 0, 0, w, h, Color(39, 39, 39))
+
+            surface.SetDrawColor(73, 73, 73)
+            surface.DrawLine(0, 0, w, 0)
+            surface.DrawLine(0, 0, 0, h)
+
+            surface.SetDrawColor(15, 15, 15, 255)
+            surface.DrawLine(0, h - 1, w, h - 1) 
+            surface.DrawLine(w - 1, 0, w - 1, h)
+        end
+
+        if IsValid(wep) then
+            local btn = vgui.Create("DButton", slotPanel)
+            btn:SetSize(slotSize, slotSize)
+            btn:SetText("")
+            
+            local class = wep:GetClass()
+            local printName = wep.PrintName or language.GetPhrase(class)
+            if printName == class then printName = class end
+            
+            local rarityColor = kb.GetItemRarityColor(class)
+
+            btn.Paint = function(self, w, h)
+                surface.SetDrawColor(rarityColor.r, rarityColor.g, rarityColor.b, 50)
+                surface.SetMaterial(gradient_down)
+                surface.DrawTexturedRect(0, 0, w, h)
+
+                local sx, sy = self:LocalToScreen(0, -15)
+                if KB_DrawWeaponSelection then
+                    KB_DrawWeaponSelection(wep, sx, sy, w, h, 255)
+                end
+                
+                draw.SimpleText(printName, "DermaDefault", w / 2, h - 6, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_BOTTOM)
+                
+                surface.SetDrawColor(rarityColor.r, rarityColor.g, rarityColor.b, 50)
+                surface.DrawRect(0, h - 3, w, 3)
+
+                if self:IsHovered() then
+                    draw.RoundedBox(0, 0, 0, w, h, Color(255, 255, 255, 5))
+                end
+            end
+            
+            btn.DoClick = function()
+            end
+        end
     end
 
     main_inventory.Paint = function(self, w, h)

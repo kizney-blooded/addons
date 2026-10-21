@@ -54,3 +54,18 @@ net.Receive("KB_ClaimLoot", function(len, ply)
         end
     end
 end)
+
+local blacklist = {
+
+}
+
+
+local function DropWeapon(ply, wpn)
+	if not IsValid(wpn) then return end
+	if (blacklist[wpn:GetClass()] or wpn.AdminOnly) then return end
+
+	ply:DropWeapon(wpn)
+end
+
+concommand.Add("+drop", function(ply) DropWeapon(ply, ply:GetActiveWeapon()) end)
+concommand.Add("-drop", function(ply) end)
