@@ -35,11 +35,24 @@ function Frame_Inventory()
         local mn, mx = plyModel.Entity:GetRenderBounds()
         local size = math.max(math.abs(mn.x) + math.abs(mx.x), math.abs(mn.y) + math.abs(mx.y), math.abs(mn.z) + math.abs(mx.z))
         plyModel:SetFOV(45)
-        plyModel:SetCamPos(Vector(size * 0.8, 0, size * 0.45)) 
+        plyModel:SetCamPos(Vector(size * 0.8, 0, size * 0.55)) 
         plyModel:SetLookAt(Vector(0, 0, (mn.z + mx.z) * 0.5))
     end
 
+
     plyModel.LayoutEntity = function() return false end
+
+    plyModel.DrawModel = function(self)
+        local alpha = main_inventory:GetAlpha() / 255
+        
+        render.SetBlend(alpha)
+        
+        if IsValid(self.Entity) then
+            self.Entity:DrawModel()
+        end
+        
+        render.SetBlend(1)
+    end
 
     main_inventory.Paint = function(self, w, h)
         draw.RoundedBox(0, 0, 0, w, h, Color(0, 0, 0, 180))
