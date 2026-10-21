@@ -360,6 +360,15 @@ hook.Add("PreDrawOpaqueRenderables", "kb_TPIK_Ragdoll_Draw", function(isDrawingD
             if IsValid(wpn) and wpn.DoTPIK then
                 local target = IsValid(rag) and rag or ply
                 wpn:DoTPIK(isDrawingDepth, target)
+
+                if wpn.GetWM then
+                    local wm = wpn:GetWM()
+                    if IsValid(wm) then
+                        wm:DrawModel()
+                    end
+                else
+                    wpn:DrawModel()
+                end
             end
         end
     end

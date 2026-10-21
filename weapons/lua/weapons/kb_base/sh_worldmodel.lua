@@ -81,7 +81,9 @@ if CLIENT then
 
     function SWEP:DrawWorldModel()
         local wm = self:GetWM()
-        if IsValid(wm) then
+        local owner = self:GetOwner()
+
+        if IsValid(wm) and IsValid(owner) and owner:IsPlayer() then
             self:UpdateWorldModelTransform()
             wm:DrawModel()
         else
