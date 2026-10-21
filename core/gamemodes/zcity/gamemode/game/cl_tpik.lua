@@ -94,7 +94,7 @@ local function SetTPIKOffset(self, wm, owner, lp)
     local pos = Vector(self.WorldModelOffset and (self.WorldModelOffset.TPIKPos or self.WorldModelOffset.Pos) or vector_origin)
     local ang = Angle(self.WorldModelOffset and (self.WorldModelOffset.TPIKAng or self.WorldModelOffset.Ang) or angle_zero)
 
-    if !self.NoTPIKVMPos and self.ActivePos then 
+    if not self.NoTPIKVMPos and self.ActivePos then 
         local apos = Vector(self.ActivePos.y, -self.ActivePos.x, self.ActivePos.z) * Vector(-1, -1, 1)
         pos:Sub(apos)
     end
@@ -108,9 +108,9 @@ function SWEP:ShouldTPIK()
     local owner = self:GetOwner()
     local lp = LocalPlayer()
 
-    if !IsValid(owner) or !owner:IsPlayer() then return false end
+    if not IsValid(owner) or not owner:IsPlayer() then return false end
 
-    local should = (lp != owner) and (tpik_enabled and tpik_others) or tpik_enabled
+    local should = (lp ~= owner) and (tpik_enabled and tpik_others) or tpik_enabled
 
     local wm = self:GetWM()
     if IsValid(wm) and wm.slottbl then
@@ -179,15 +179,59 @@ local function TPIKTweenAng(self, key, target, alpha)
     return current
 end
 
-function SWEP:DoTPIK(isdepth, target_ent)
-    local wpn = LocalPlayer():GetActiveWeapon()
+local function ProcessHandIK(self, target, limblength, eyeahg, shouldfulltpik, tpikTweenAlpha, isLeft)
+    local prefix = isLeft and "l" or "r"
+    local boneStr = isLeft and "ValveBiped.Bip01_L_" or "ValveBiped.Bip01_R_"
+    
+    local upperarm_index = GetCachedBoneIndex(target, boneStr .. "UpperArm")
+    local forearm_index = GetCachedBoneIndex(target, boneStr .. "Forearm")
+    local hand_index = GetCachedBoneIndex(target, boneStr .. "Hand")
 
-    if wpn.DrawWorldModel then
-        wpn:DrawWorldModel()
+    if not (upperarm_index and forearm_index and hand_index) then return end
+
+    local upperarm_matrix = entityGetBoneMatrix(target, upperarm_index)
+    local forearm_matrix = entityGetBoneMatrix(target, forearm_index)
+    local hand_matrix = entityGetBoneMatrix(target, hand_index)
+
+    if not (upperarm_matrix and forearm_matrix and hand_matrix) then return end
+
+    local upperarm_pos, forearm_pos, upperarm_angle, forearm_angle
+    local sign = isLeft and 1 or -1.3
+
+    if shouldfulltpik or not (self.TPIKCache[prefix.."_upperarm_pos"] and self.TPIKCache[prefix.."_forearm_pos"] and self.TPIKCache["ply_"..prefix.."_upperarm_angle"] and self.TPIKCache["ply_"..prefix.."_forearm_angle"]) then
+        upperarm_pos, forearm_pos, upperarm_angle, forearm_angle = self:Solve2PartIK(
+            upperarm_matrix:GetTranslation(), hand_matrix:GetTranslation(), limblength, limblength, sign, eyeahg)
+        
+        self.LastTPIKTime = CurTime()
+        self.TPIKCache[prefix.."_upperarm_pos"], self.TPIKCache["ply_"..prefix.."_upperarm_angle"] = WorldToLocal(upperarm_pos, upperarm_angle, upperarm_matrix:GetTranslation(), upperarm_matrix:GetAngles())
+        self.TPIKCache[prefix.."_forearm_pos"], self.TPIKCache["ply_"..prefix.."_forearm_angle"] = WorldToLocal(forearm_pos, forearm_angle, upperarm_matrix:GetTranslation(), upperarm_matrix:GetAngles())
     end
 
+    local tUpperPos = TPIKTweenVec(self, prefix.."_upperarm_pos", self.TPIKCache[prefix.."_upperarm_pos"], tpikTweenAlpha)
+    local tUpperAng = TPIKTweenAng(self, prefix.."_upperarm_ang", self.TPIKCache["ply_"..prefix.."_upperarm_angle"], tpikTweenAlpha)
+    local tForePos = TPIKTweenVec(self, prefix.."_forearm_pos", self.TPIKCache[prefix.."_forearm_pos"], tpikTweenAlpha)
+    local tForeAng = TPIKTweenAng(self, prefix.."_forearm_ang", self.TPIKCache["ply_"..prefix.."_forearm_angle"], tpikTweenAlpha)
+
+    upperarm_pos, upperarm_angle = LocalToWorld(tUpperPos, tUpperAng, upperarm_matrix:GetTranslation(), upperarm_matrix:GetAngles())
+    forearm_pos, forearm_angle = LocalToWorld(tForePos, tForeAng, upperarm_matrix:GetTranslation(), upperarm_matrix:GetAngles())
+
+    upperarm_matrix:SetAngles(upperarm_angle)
+    forearm_matrix:SetTranslation(upperarm_pos)
+    forearm_matrix:SetAngles(forearm_angle)
+    hand_matrix:SetTranslation(forearm_pos) 
+
+    bone_apply_matrix(target, upperarm_index, upperarm_matrix, forearm_index)
+    bone_apply_matrix(target, forearm_index, forearm_matrix, hand_index)
+    bone_apply_matrix(target, hand_index, hand_matrix)
+end
+
+function SWEP:DoTPIK(isdepth, target_ent)
     local wm = self:GetWM()
-    if !IsValid(wm) then return end
+    if not IsValid(wm) then return end
+
+    if self.UpdateWorldModelTransform then
+        self:UpdateWorldModelTransform()
+    end
 
     if wm:GetPos():IsZero() and self.wmnormalpos then
         wm:SetPos(self.wmnormalpos)
@@ -197,13 +241,13 @@ function SWEP:DoTPIK(isdepth, target_ent)
         self.wmnormalang = wm:GetAngles()
     end
 
-    if !self:ShouldTPIK() then
+    if not self:ShouldTPIK() then
         if cachelastcycle > 0 then wm:SetCycle(0) cachelastcycle = 0 end
         return
     end
 
     local ply = self:GetOwner()
-    if !IsValid(ply) then return end
+    if not IsValid(ply) then return end
     
     local target = IsValid(target_ent) and target_ent or ply
 
@@ -215,7 +259,7 @@ function SWEP:DoTPIK(isdepth, target_ent)
     local nolefthand = false
     local htype = self.GetHoldType and self:GetHoldType() or "normal"
 
-    if !self.TPIKforcelefthand and (htype == "slam" or htype == "magic" or htype == "pistol" or htype == "normal" or self.TPIKnolefthand) then
+    if not self.TPIKforcelefthand and (htype == "slam" or htype == "magic" or htype == "pistol" or htype == "normal" or self.TPIKnolefthand) then
         nolefthand = true
     end
 
@@ -237,27 +281,28 @@ function SWEP:DoTPIK(isdepth, target_ent)
         wm:SetCycle(time)
         cachelastcycle = time
         wm:InvalidateBoneCache()
+        
+        target:SetupBones()
     end
-
-    target:SetupBones()
 
     local bones = nolefthand and kb.RHIKHandBones or kb.TPIKBones
     local ply_spine_index = GetCachedBoneIndex(target, "ValveBiped.Bip01_Spine4")
-    if !ply_spine_index then return end
+    if not ply_spine_index then return end
     
     local ply_spine_matrix = entityGetBoneMatrix(target, ply_spine_index)
+    if not ply_spine_matrix then return end
     local wmpos = ply_spine_matrix:GetTranslation()
 
     for _, bone in ipairs(bones) do
         local wm_boneindex = GetCachedBoneIndex(wm, bone)
-        if !wm_boneindex then continue end
+        if not wm_boneindex then continue end
         local wm_bonematrix = entityGetBoneMatrix(wm, wm_boneindex)
-        if !wm_bonematrix then continue end
+        if not wm_bonematrix then continue end
 
         local ply_boneindex = GetCachedBoneIndex(target, bone)
-        if !ply_boneindex then continue end
+        if not ply_boneindex then continue end
         local ply_bonematrix = entityGetBoneMatrix(target, ply_boneindex)
-        if !ply_bonematrix then continue end
+        if not ply_bonematrix then continue end
 
         local bonepos = wm_bonematrix:GetTranslation()
         local boneang = wm_bonematrix:GetAngles()
@@ -272,101 +317,32 @@ function SWEP:DoTPIK(isdepth, target_ent)
         target:SetBonePosition(ply_boneindex, bonepos, boneang)
     end
 
-    local ply_l_upperarm_index = GetCachedBoneIndex(target, "ValveBiped.Bip01_L_UpperArm")
-    local ply_r_upperarm_index = GetCachedBoneIndex(target, "ValveBiped.Bip01_R_UpperArm")
     local ply_l_forearm_index = GetCachedBoneIndex(target, "ValveBiped.Bip01_L_Forearm")
-    local ply_r_forearm_index = GetCachedBoneIndex(target, "ValveBiped.Bip01_R_Forearm")
-    local ply_l_hand_index = GetCachedBoneIndex(target, "ValveBiped.Bip01_L_Hand")
-    local ply_r_hand_index = GetCachedBoneIndex(target, "ValveBiped.Bip01_R_Hand")
-
-    if !ply_l_upperarm_index or !ply_r_upperarm_index or !ply_l_forearm_index or !ply_r_forearm_index or !ply_l_hand_index or !ply_r_hand_index then return end
-
-    -- Right Hand
-    local ply_r_upperarm_matrix = entityGetBoneMatrix(target, ply_r_upperarm_index)
-    local ply_r_forearm_matrix = entityGetBoneMatrix(target, ply_r_forearm_index)
-    local ply_r_hand_matrix = entityGetBoneMatrix(target, ply_r_hand_index)
-
+    if not ply_l_forearm_index then return end
+    
     local limblength = target:BoneLength(ply_l_forearm_index)
-    if !limblength or limblength == 0 then limblength = 12 end
+    if not limblength or limblength == 0 then limblength = 12 end
 
-    local ply_r_upperarm_pos, ply_r_forearm_pos, ply_r_upperarm_angle, ply_r_forearm_angle
     local eyeahg = ply:EyeAngles()
-
     if htype == "passive" or htype == "normal" then 
         eyeahg.y = eyeahg.y - (ply:GetPoseParameter("aim_yaw") or 0) * 160 + 80 or 0
     end
 
-    if shouldfulltpik or !(self.TPIKCache.r_upperarm_pos and self.TPIKCache.r_forearm_pos and self.TPIKCache.ply_r_upperarm_angle and self.TPIKCache.ply_r_forearm_angle) then
-        ply_r_upperarm_pos, ply_r_forearm_pos, ply_r_upperarm_angle, ply_r_forearm_angle = self:Solve2PartIK(
-            ply_r_upperarm_matrix:GetTranslation(), ply_r_hand_matrix:GetTranslation(), limblength, limblength, -1.3, eyeahg)
-        self.LastTPIKTime = CurTime()
-
-        self.TPIKCache.r_upperarm_pos, self.TPIKCache.ply_r_upperarm_angle = WorldToLocal(ply_r_upperarm_pos, ply_r_upperarm_angle, ply_r_upperarm_matrix:GetTranslation(), ply_r_upperarm_matrix:GetAngles())
-        self.TPIKCache.r_forearm_pos, self.TPIKCache.ply_r_forearm_angle = WorldToLocal(ply_r_forearm_pos, ply_r_forearm_angle, ply_r_upperarm_matrix:GetTranslation(), ply_r_upperarm_matrix:GetAngles())
-    end
-
-    local rUpperPos = TPIKTweenVec(self, "r_upperarm_pos", self.TPIKCache.r_upperarm_pos, tpikTweenAlpha)
-    local rUpperAng = TPIKTweenAng(self, "r_upperarm_ang", self.TPIKCache.ply_r_upperarm_angle, tpikTweenAlpha)
-    local rForePos = TPIKTweenVec(self, "r_forearm_pos", self.TPIKCache.r_forearm_pos, tpikTweenAlpha)
-    local rForeAng = TPIKTweenAng(self, "r_forearm_ang", self.TPIKCache.ply_r_forearm_angle, tpikTweenAlpha)
-
-    ply_r_upperarm_pos, ply_r_upperarm_angle = LocalToWorld(rUpperPos, rUpperAng, ply_r_upperarm_matrix:GetTranslation(), ply_r_upperarm_matrix:GetAngles())
-    ply_r_forearm_pos, ply_r_forearm_angle = LocalToWorld(rForePos, rForeAng, ply_r_upperarm_matrix:GetTranslation(), ply_r_upperarm_matrix:GetAngles())
-
-    ply_r_upperarm_matrix:SetAngles(ply_r_upperarm_angle)
-    ply_r_forearm_matrix:SetTranslation(ply_r_upperarm_pos)
-    ply_r_forearm_matrix:SetAngles(ply_r_forearm_angle)
-    ply_r_hand_matrix:SetTranslation(ply_r_forearm_pos) 
-
-    bone_apply_matrix(target, ply_r_upperarm_index, ply_r_upperarm_matrix, ply_r_forearm_index)
-    bone_apply_matrix(target, ply_r_forearm_index, ply_r_forearm_matrix, ply_r_hand_index)
-    bone_apply_matrix(target, ply_r_hand_index, ply_r_hand_matrix)
+    ProcessHandIK(self, target, limblength, eyeahg, shouldfulltpik, tpikTweenAlpha, false)
 
     if nolefthand then return end
 
-    -- Left Hand
-    local ply_l_upperarm_matrix = entityGetBoneMatrix(target, ply_l_upperarm_index)
-    local ply_l_forearm_matrix = entityGetBoneMatrix(target, ply_l_forearm_index)
-    local ply_l_hand_matrix = entityGetBoneMatrix(target, ply_l_hand_index)
-
-    local ply_l_upperarm_pos, ply_l_forearm_pos, ply_l_upperarm_angle, ply_l_forearm_angle
-
-    if shouldfulltpik or !(self.TPIKCache.l_upperarm_pos and self.TPIKCache.l_forearm_pos and self.TPIKCache.ply_l_upperarm_angle and self.TPIKCache.ply_l_forearm_angle) then
-        ply_l_upperarm_pos, ply_l_forearm_pos, ply_l_upperarm_angle, ply_l_forearm_angle = self:Solve2PartIK(
-            ply_l_upperarm_matrix:GetTranslation(), ply_l_hand_matrix:GetTranslation(), limblength, limblength, 1, eyeahg)
-        
-        self.LastTPIKTime = CurTime()
-        self.TPIKCache.l_upperarm_pos, self.TPIKCache.ply_l_upperarm_angle = WorldToLocal(ply_l_upperarm_pos, ply_l_upperarm_angle, ply_l_upperarm_matrix:GetTranslation(), ply_l_upperarm_matrix:GetAngles())
-        self.TPIKCache.l_forearm_pos, self.TPIKCache.ply_l_forearm_angle = WorldToLocal(ply_l_forearm_pos, ply_l_forearm_angle, ply_l_upperarm_matrix:GetTranslation(), ply_l_upperarm_matrix:GetAngles())
-    end
-
-    local lUpperPos = TPIKTweenVec(self, "l_upperarm_pos", self.TPIKCache.l_upperarm_pos, tpikTweenAlpha)
-    local lUpperAng = TPIKTweenAng(self, "l_upperarm_ang", self.TPIKCache.ply_l_upperarm_angle, tpikTweenAlpha)
-    local lForePos = TPIKTweenVec(self, "l_forearm_pos", self.TPIKCache.l_forearm_pos, tpikTweenAlpha)
-    local lForeAng = TPIKTweenAng(self, "l_forearm_ang", self.TPIKCache.ply_l_forearm_angle, tpikTweenAlpha)
-
-    ply_l_upperarm_pos, ply_l_upperarm_angle = LocalToWorld(lUpperPos, lUpperAng, ply_l_upperarm_matrix:GetTranslation(), ply_l_upperarm_matrix:GetAngles())
-    ply_l_forearm_pos, ply_l_forearm_angle = LocalToWorld(lForePos, lForeAng, ply_l_upperarm_matrix:GetTranslation(), ply_l_upperarm_matrix:GetAngles())
-
-    ply_l_upperarm_matrix:SetAngles(ply_l_upperarm_angle)
-    ply_l_forearm_matrix:SetTranslation(ply_l_upperarm_pos)
-    ply_l_forearm_matrix:SetAngles(ply_l_forearm_angle)
-    ply_l_hand_matrix:SetTranslation(ply_l_forearm_pos)
-
-    bone_apply_matrix(target, ply_l_upperarm_index, ply_l_upperarm_matrix, ply_l_forearm_index)
-    bone_apply_matrix(target, ply_l_forearm_index, ply_l_forearm_matrix, ply_l_hand_index)
-    bone_apply_matrix(target, ply_l_hand_index, ply_l_hand_matrix)
+    ProcessHandIK(self, target, limblength, eyeahg, shouldfulltpik, tpikTweenAlpha, true)
 end
 
 hook.Add("PrePlayerDraw", "kb_TPIK_Draw", function(ply, flags)
     if ply then
         local tick = FrameNumber()
-        if ply.kb_LastTPIKTick != tick or flags != 0 then
+        if ply.kb_LastTPIKTick ~= tick or flags ~= 0 then
             ply.kb_LastTPIKTick = tick
 
             local wpn = ply:GetActiveWeapon()
             if IsValid(wpn) and wpn.DoTPIK then
-                ply:InvalidateBoneCache()
                 wpn:DoTPIK(flags == 134217729)
             end
         end
@@ -381,13 +357,9 @@ hook.Add("PreDrawOpaqueRenderables", "kb_TPIK_Ragdoll_Draw", function(isDrawingD
         
         if IsValid(rag) or (ply:GetNoDraw() and ply:Alive()) then
             local wpn = ply:GetActiveWeapon()
-            if IsValid(wpn) then
-
-                if wpn.DoTPIK then
-                    local target = IsValid(rag) and rag or ply
-                    target:InvalidateBoneCache()
-                    wpn:DoTPIK(isDrawingDepth, target)
-                end
+            if IsValid(wpn) and wpn.DoTPIK then
+                local target = IsValid(rag) and rag or ply
+                wpn:DoTPIK(isDrawingDepth, target)
             end
         end
     end
