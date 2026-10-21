@@ -36,6 +36,8 @@ function StartRoundSV()
     kb.RD.state = 1
     kb.RD.winner = nil
 
+    kb.RD.time_round = kb.RD.time_round or CurTime() + 300
+
     if kb.RD.next_round then
         kb.RD.current_round = kb.RD.next_round
     else
@@ -82,6 +84,11 @@ end
 
 local function LogicRoundSV()
     if kb.RD.state != 1 then return end
+
+    if kb.RD.time_round and CurTime() >= kb.RD.time_round then
+        EndRoundSV("Время вышло")
+        return
+    end
 
     --if current_round and _G[current_round].LogicRound() then
         _G[kb.RD.current_round].LogicRound()

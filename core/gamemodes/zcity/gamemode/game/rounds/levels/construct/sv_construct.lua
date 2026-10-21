@@ -1,4 +1,5 @@
 function constract.StartRound()
+    kb.RD.time_round = CurTime() + 4500
     for _ , ply in player.Iterator() do
         ply:Spawn()
 
