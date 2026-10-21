@@ -52,11 +52,11 @@ function Frame_Inventory()
         local alpha = main_inventory:GetAlpha() / 255
 
         render.SetBlend(alpha)
-
+        
         if IsValid(self.Entity) then
             self.Entity:DrawModel()
         end
-
+        
         render.SetBlend(1)
     end
 
@@ -72,69 +72,100 @@ function Frame_Inventory()
     invPanel:SetPos((ScrW() - invW) / 2, ScrH() - invH - 40)
     invPanel.Paint = function() end 
 
-    local weps = LocalPlayer():GetWeapons()
-    local valid_weps = {}
-    
-    for _, wep in ipairs(weps) do
-        if IsValid(wep) and not weapon_blacklist[wep:GetClass()] then
-            table.insert(valid_weps, wep)
+    invPanel.Refresh = function(self)
+        self:Clear()
+
+        local weps = LocalPlayer():GetWeapons()
+        local valid_weps = {}
+        
+        for _, wep in ipairs(weps) do
+            if IsValid(wep) and not weapon_blacklist[wep:GetClass()] then
+                table.insert(valid_weps, wep)
+            end
+        end
+
+        for i = 1, 8 do
+            local slotPanel = vgui.Create("DPanel", self)
+            slotPanel:SetSize(slotSize, slotSize)
+            slotPanel:SetPos((i - 1) * (slotSize + spacing), 0)
+            
+            local wep = valid_weps[i]
+            
+            slotPanel.Paint = function(s, w, h)
+                draw.RoundedBox(0, 0, 0, w, h, Color(39, 39, 39))
+                surface.SetDrawColor(73, 73, 73)
+                surface.DrawLine(0, 0, w, 0)
+                surface.DrawLine(0, 0, 0, h)
+                surface.SetDrawColor(15, 15, 15, 255)
+                surface.DrawLine(0, h - 1, w, h - 1) 
+                surface.DrawLine(w - 1, 0, w - 1, h)
+            end
+
+            if IsValid(wep) then
+                local btn = vgui.Create("DButton", slotPanel)
+                btn:SetSize(slotSize, slotSize)
+                btn:SetText("")
+                
+                local class = wep:GetClass()
+                local printName = wep.PrintName or language.GetPhrase(class)
+                if printName == class then printName = class end
+                
+                local rarityColor = kb.GetItemRarityColor(class)
+
+                btn.WepClass = class
+                btn:Droppable("Weapon_Item") 
+
+                btn.Paint = function(s, w, h)
+                    surface.SetDrawColor(rarityColor.r, rarityColor.g, rarityColor.b, 50)
+                    surface.SetMaterial(gradient_down)
+                    surface.DrawTexturedRect(0, 0, w, h)
+
+                    local sx, sy = s:LocalToScreen(0, -15)
+                    if KB_DrawWeaponSelection then
+                        KB_DrawWeaponSelection(wep, sx, sy, w, h, 255)
+                    end
+                    
+                    draw.SimpleText(printName, "DermaDefault", w / 2, h - 6, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_BOTTOM)
+                    
+                    surface.SetDrawColor(rarityColor.r, rarityColor.g, rarityColor.b, 50)
+                    surface.DrawRect(0, h - 3, w, 3)
+
+                    if s:IsHovered() then
+                        draw.RoundedBox(0, 0, 0, w, h, Color(255, 255, 255, 5))
+                    end
+                end
+                
+                btn.DoClick = function() end
+            end
         end
     end
 
-    for i = 1, 8 do
-        local slotPanel = vgui.Create("DPanel", invPanel)
-        slotPanel:SetSize(slotSize, slotSize)
-        slotPanel:SetPos((i - 1) * (slotSize + spacing), 0)
-        
-        local wep = valid_weps[i]
-        
-        slotPanel.Paint = function(self, w, h)
-            draw.RoundedBox(0, 0, 0, w, h, Color(39, 39, 39))
+    invPanel:Refresh()
 
-            surface.SetDrawColor(73, 73, 73)
-            surface.DrawLine(0, 0, w, 0)
-            surface.DrawLine(0, 0, 0, h)
+    main_inventory:Receiver("Weapon_Item", function(self, panels, isDropped, index, x, y)
+        if isDropped then
+            local pnl = panels[1]
+            if not IsValid(pnl) then return end
 
-            surface.SetDrawColor(15, 15, 15, 255)
-            surface.DrawLine(0, h - 1, w, h - 1) 
-            surface.DrawLine(w - 1, 0, w - 1, h)
-        end
+            local mx, my = gui.MousePos()
+            local ix, iy = invPanel:LocalToScreen(0, 0)
+            local iw, ih = invPanel:GetSize()
 
-        if IsValid(wep) then
-            local btn = vgui.Create("DButton", slotPanel)
-            btn:SetSize(slotSize, slotSize)
-            btn:SetText("")
-            
-            local class = wep:GetClass()
-            local printName = wep.PrintName or language.GetPhrase(class)
-            if printName == class then printName = class end
-            
-            local rarityColor = kb.GetItemRarityColor(class)
-
-            btn.Paint = function(self, w, h)
-                surface.SetDrawColor(rarityColor.r, rarityColor.g, rarityColor.b, 50)
-                surface.SetMaterial(gradient_down)
-                surface.DrawTexturedRect(0, 0, w, h)
-
-                local sx, sy = self:LocalToScreen(0, -15)
-                if KB_DrawWeaponSelection then
-                    KB_DrawWeaponSelection(wep, sx, sy, w, h, 255)
-                end
+            if mx < ix or mx > (ix + iw) or my < iy or my > (iy + ih) then
+                net.Start("KB_DropWeapon_Action")
+                net.WriteString(pnl.WepClass)
+                net.SendToServer()
                 
-                draw.SimpleText(printName, "DermaDefault", w / 2, h - 6, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_BOTTOM)
+                pnl:SetVisible(false) 
                 
-                surface.SetDrawColor(rarityColor.r, rarityColor.g, rarityColor.b, 50)
-                surface.DrawRect(0, h - 3, w, 3)
-
-                if self:IsHovered() then
-                    draw.RoundedBox(0, 0, 0, w, h, Color(255, 255, 255, 5))
-                end
-            end
-            
-            btn.DoClick = function()
+                timer.Simple(0.1, function()
+                    if IsValid(invPanel) then
+                        invPanel:Refresh()
+                    end
+                end)
             end
         end
-    end
+    end)
 
     main_inventory.Paint = function(self, w, h)
         draw.RoundedBox(0, 0, 0, w, h, Color(0, 0, 0, 180))
@@ -154,8 +185,6 @@ function Frame_Inventory()
         if key == KEY_W or key == KEY_A or key == KEY_S or key == KEY_D then
             if IsValid(lootbox_frame) then
                 lootbox_frame:Close()
-            else
-                --self.isClosing = true
             end
         end
     end

@@ -1,4 +1,5 @@
 util.AddNetworkString("KB_ClaimLoot")
+util.AddNetworkString("KB_DropWeapon_Action")
 
 net.Receive("KB_ClaimLoot", function(len, ply)
     local box_ent = net.ReadEntity()
@@ -69,3 +70,14 @@ end
 
 concommand.Add("+drop", function(ply) DropWeapon(ply, ply:GetActiveWeapon()) end)
 concommand.Add("-drop", function(ply) end)
+
+net.Receive("KB_DropWeapon_Action", function(len, ply)
+    local wep_class = net.ReadString()
+    
+    if not IsValid(ply) or not ply:IsPlayer() then return end
+    
+    local wep = ply:GetWeapon(wep_class)
+    if IsValid(wep) then
+        DropWeapon(ply, wep)
+    end
+end)
