@@ -8,7 +8,7 @@ local blur = Material("pp/blurscreen")
 local gradient_down = Material("gui/gradient_up")
 
 local weapon_blacklist = {
-    ["weapon_hands"] = true,
+    ["wep_jack_gmod_hands"] = true,
     ["weapon_physcannon"] = true,
     ["gmod_tool"] = true
 }
@@ -61,6 +61,7 @@ function Frame_Inventory()
     end
 
     local invPanel = vgui.Create("DPanel", main_inventory)
+    main_inventory.invPanel = invPanel
     local slotSize = 75
     local spacing = 0
     local cols = 8
@@ -114,6 +115,14 @@ function Frame_Inventory()
 
                 btn.WepClass = class
                 btn:Droppable("Weapon_Item") 
+
+                btn.OnStartDragging = function(self)
+                    self:SetPaintedManually(true)
+                end
+
+                btn.OnStopDragging = function(self)
+                    self:SetPaintedManually(false)
+                end
 
                 btn.Paint = function(s, w, h)
                     surface.SetDrawColor(rarityColor.r, rarityColor.g, rarityColor.b, 50)
@@ -349,6 +358,12 @@ net.Receive("KB_OpenLootBox", function()
                     net.WriteEntity(box_ent)
                     net.WriteUInt(index, 8) 
                 net.SendToServer()
+
+                timer.Simple(0.1, function()
+                    if IsValid(main_inventory) and IsValid(main_inventory.invPanel) then
+                        main_inventory.invPanel:Refresh()
+                    end
+                end)
 
                 if not LocalPlayer():HasWeapon(item.class) then
                     btn:Remove()
