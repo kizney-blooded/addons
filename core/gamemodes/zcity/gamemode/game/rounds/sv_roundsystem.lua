@@ -36,8 +36,6 @@ function StartRoundSV()
     kb.RD.state = 1
     kb.RD.winner = nil
 
-    kb.RD.time_round = kb.RD.time_round or CurTime() + 300
-
     if kb.RD.next_round then
         kb.RD.current_round = kb.RD.next_round
     else
@@ -45,6 +43,9 @@ function StartRoundSV()
     end
 
     _G[kb.RD.current_round].StartRound()
+
+    local round_duration = _G[kb.RD.current_round].RoundTime or 300
+    kb.RD.time_round = CurTime() + round_duration
 
     kb.RD.next_round = table.Random(kb.LevelList)
 

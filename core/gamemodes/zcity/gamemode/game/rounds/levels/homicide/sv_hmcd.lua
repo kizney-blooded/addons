@@ -1,3 +1,5 @@
+hmcd.RoundTime = 600
+
 function hmcd.StartRound()
     for _ , ply in player.Iterator() do
         ply:Spawn()

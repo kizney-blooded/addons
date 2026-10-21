@@ -10,6 +10,8 @@ kb.RD = kb.RD or {
 
     time_round = nil,
 
+    disable_respawn_time = nil,
+
     winner = nil,
 }
 
