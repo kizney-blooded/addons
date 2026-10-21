@@ -54,6 +54,8 @@ function Camera:Initialize( user, vehicle, seatIndex )
     self.lastAimPosAnglesFromEyes = Angle()
     self.lastAimPosDistanceFromEyes = 0
 
+    self.isInFirstPerson = true
+
     self:SetFirstPerson( self.isInFirstPerson )
 
     AddHook( "Think" )
@@ -230,9 +232,9 @@ function Camera:Think()
     if self.isSwitchKeyDown ~= isSwitchKeyDown then
         self.isSwitchKeyDown = isSwitchKeyDown
 
-        if isSwitchKeyDown then
+        --[[if isSwitchKeyDown then
             self:SetFirstPerson( not self.isInFirstPerson )
-        end
+        end--]]
     end
 
     local t = RealTime()
@@ -371,47 +373,11 @@ function Camera:CalcView()
     local user = self.user
     local offset, pivot
 
-    if self.isInFirstPerson then
-        local localEyePos = vehicle:WorldToLocal( user:EyePos() )
-        local localPos = vehicle:GetFirstPersonOffset( self.seatIndex, localEyePos )
-        pivot = vehicle:LocalToWorld( localPos )
-        offset = Vector()
-    else
-        angles = angles + vehicle.CameraAngleOffset
-        pivot = vehicle:LocalToWorld( vehicle.CameraCenterOffset + vehicle.CameraTrailerOffset * self.trailerDistanceFraction )
+    local localEyePos = vehicle:WorldToLocal( user:EyePos() )
+    local localPos = vehicle:GetFirstPersonOffset( self.seatIndex, localEyePos )
+    pivot = vehicle:LocalToWorld( localPos )
 
-        offset = vehicle.CameraOffset * Vector( Config.cameraDistance *
-            ( 1 + self.trailerDistanceFraction * vehicle.CameraTrailerDistanceMultiplier ), 1, Config.cameraHeight )
-
-        -- Try to make the camera stay outside of walls
-        local endPos = pivot
-            + angles:Forward() * offset[1]
-            + angles:Right() * offset[2]
-            + angles:Up() * offset[3]
-
-        local offsetDir = endPos - pivot
-        local offsetLen = offsetDir:Length()
-        offsetDir:Normalize()
-
-        traceData.start = pivot
-        traceData.endpos = endPos + offsetDir * 10
-        traceData.mask = 16395 -- MASK_SOLID_BRUSHONLY
-
-        TraceLine( traceData )
-
-        fraction = self.distanceFraction
-
-        if traceResult.Hit then
-            fraction = ( offsetLen * traceResult.Fraction ) / offsetLen
-
-            if fraction < self.distanceFraction then
-                self.distanceFraction = fraction
-            end
-        end
-
-        offset = self.shakeOffset + offset * fraction
-    end
-
+    offset = Vector(6,0,0)
     self.position = pivot
         + angles:Forward() * offset[1]
         + angles:Right() * offset[2]
@@ -445,8 +411,8 @@ function Camera:CalcView()
     return {
         origin = self.position,
         angles = angles + self.punchAngle,
-        fov = self.fov,
-        drawviewer = not self.isInFirstPerson
+        fov = main_fov,
+        drawviewer = true
     }
 end
 

@@ -56,6 +56,7 @@ hook.Add( "CalcView", "MyCalcView", function( ply, pos, angles, fov )
 
     main_origin = view.origin
     main_angles = view.angles
+    main_fov = view.fov
 
     return view
 end )
