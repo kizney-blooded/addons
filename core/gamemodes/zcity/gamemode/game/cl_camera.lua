@@ -50,7 +50,7 @@ hook.Add( "CalcView", "MyCalcView", function( ply, pos, angles, fov )
 
     local wep = ply:GetActiveWeapon()
 
-    if blacklist_weps[wep:GetClass()] then 
+    if IsValid(wep) and blacklist_weps[wep:GetClass()] then 
         local view = {
             origin = pos,
             angles = angles,
