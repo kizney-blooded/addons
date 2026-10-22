@@ -92,18 +92,11 @@ hook.Add("ScaleNPCDamage", "HitGroupMultipliers_NPC", function(npc, hitgroup, dm
     do_effect_on_damage(npc, dmginfo:GetDamage(), dmginfo:GetDamagePosition(), hitgroup)
 end)
 
-function ragdoll_fall_damage(ent, dmginfo)
+function ragdoll_bullet_damage(ent, dmginfo)
+    if !dmginfo:IsDamageType(DMG_BULLET) then return end
     if not IsValid(ent) or ent:GetClass() ~= "prop_ragdoll" then return end
 
     local damage = dmginfo:GetDamage()
-
-    if dmginfo:IsDamageType(DMG_CRUSH) then
-        if damage < 10 then return end 
-        local phys = ent:GetPhysicsObject()
-        if IsValid(phys) then
-            if phys:GetVelocity():Length() < 350 then return end
-        end
-    end
 
     local damagePos = dmginfo:GetDamagePosition()
 
@@ -148,15 +141,12 @@ function ragdoll_fall_damage(ent, dmginfo)
         ply_dmg:SetAttacker(dmginfo:GetAttacker() or game.GetWorld())
         ply_dmg:SetInflictor(dmginfo:GetInflictor() or game.GetWorld())
         
-        if dmginfo:IsDamageType(DMG_CRUSH) then
-            ply_dmg:SetDamageType(DMG_FALL)
-        else
-            ply_dmg:SetDamageType(DMG_BULLET)
-        end
+
+        ply_dmg:SetDamageType(DMG_BULLET)
 
         ply_dmg:SetDamagePosition(owner:GetPos())
         owner:TakeDamageInfo(ply_dmg)
     end
 end
 
-hook.Add("EntityTakeDamage", "RagdollFallDamageHook", ragdoll_fall_damage)
+hook.Add("EntityTakeDamage", "RagdollFallDamageHook", ragdoll_bullet_damage)
