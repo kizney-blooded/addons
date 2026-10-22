@@ -3,95 +3,166 @@ TOOL.Name = "Расставление точек"
 TOOL.Command = nil
 TOOL.ConfigName = ""
 
+TOOL.ClientConVar["type"] = "random"
+
 if CLIENT then
     language.Add("tool.kb_spawnpoints.name", "Расставление точек")
-    language.Add("tool.kb_spawnpoints.desc", "Создает точки спавна для различных зон (например, Красная Зона)")
-    language.Add("tool.kb_spawnpoints.0", "ЛКМ: Установить точку")
+    language.Add("tool.kb_spawnpoints.desc", "Создает точки спавна для Kizney Box")
+    language.Add("tool.kb_spawnpoints.left", "ЛКМ: Установить точку")
+    language.Add("tool.kb_spawnpoints.right", "ПКМ: Удалить ближайшую точку")
 end
 
-TOOL.ClientConVar["zonetype"] = "red_zone"
+if SERVER then
+    KB_SPAWNPOINTS = KB_SPAWNPOINTS or { random = {}, blue = {}, red = {} }
+    KB_SPAWN_ENTITIES = KB_SPAWN_ENTITIES or { random = {}, blue = {}, red = {} }
+
+    local function GetDirPath()
+        return "data_spawnpoints/" .. game.GetMap()
+    end
+
+    local function GetFilePath()
+        return GetDirPath() .. "/log.json"
+    end
+
+    local function RefreshSpawnEntities()
+        for k, entsList in pairs(KB_SPAWN_ENTITIES) do
+            for _, ent in ipairs(entsList) do
+                if IsValid(ent) then ent:Remove() end
+            end
+        end
+        KB_SPAWN_ENTITIES = { random = {}, blue = {}, red = {} }
+
+        for sType, points in pairs(KB_SPAWNPOINTS) do
+            for _, pos in ipairs(points) do
+                local ent = ents.Create("info_target")
+                ent:SetPos(pos)
+                ent:Spawn()
+                table.insert(KB_SPAWN_ENTITIES[sType], ent)
+            end
+        end
+    end
+
+    function KB_LoadSpawnpoints()
+        local dir = GetDirPath()
+        if not file.Exists(dir, "DATA") then
+            file.CreateDir(dir)
+        end
+
+        local f = GetFilePath()
+        if file.Exists(f, "DATA") then
+            local data = file.Read(f, "DATA")
+            if data then
+                KB_SPAWNPOINTS = util.JSONToTable(data) or { random = {}, blue = {}, red = {} }
+            end
+        end
+        RefreshSpawnEntities()
+    end
+
+    function KB_SaveSpawnpoints()
+        local dir = GetDirPath()
+        if not file.Exists(dir, "DATA") then
+            file.CreateDir(dir)
+        end
+        file.Write(GetFilePath(), util.TableToJSON(KB_SPAWNPOINTS, true))
+        RefreshSpawnEntities()
+    end
+
+    hook.Add("InitPostEntity", "KB_InitSpawnpoints", KB_LoadSpawnpoints)
+    
+    KB_LoadSpawnpoints()
+end
 
 function TOOL:LeftClick(trace)
-    if not trace.Hit then return false end
+    if CLIENT then return true end
+
+    local spawnType = self:GetClientInfo("type")
+    if spawnType ~= "random" and spawnType ~= "blue" and spawnType ~= "red" then
+        spawnType = "random"
+    end
+
+    table.insert(KB_SPAWNPOINTS[spawnType], trace.HitPos)
+    KB_SaveSpawnpoints()
+
+    self:GetOwner():ChatPrint("[Kizney Box] Точка типа '" .. spawnType .. "' успешно создана и сохранена!")
+    return true
+end
+
+function TOOL:RightClick(trace)
+    if CLIENT then return true end
     
-    if CLIENT then
-        local hitPos = trace.HitPos
-        local zoneType = self:GetClientInfo("zonetype")
+    local targetPos = trace.HitPos
+    local nearestType = nil
+    local nearestIdx = nil
+    local minDist = 10000 -- (100^2)
 
-        local frame = vgui.Create("DFrame")
-        frame:SetSize(300, 150)
-        frame:Center()
-        frame:SetTitle("Настройка зоны")
-        frame:MakePopup()
-
-        local label = vgui.Create("DLabel", frame)
-        label:SetPos(10, 30)
-        label:SetText("Радиус (по умолчанию 3000):")
-        label:SizeToContents()
-
-        local radiusEntry = vgui.Create("DTextEntry", frame)
-        radiusEntry:SetPos(10, 50)
-        radiusEntry:SetSize(280, 25)
-        radiusEntry:SetNumeric(true)
-        radiusEntry:SetText("3000")
-
-        local btn = vgui.Create("DButton", frame)
-        btn:SetPos(10, 90)
-        btn:SetSize(280, 30)
-        btn:SetText("Создать")
-        btn.DoClick = function()
-            local radius = tonumber(radiusEntry:GetValue()) or 3000
-            
-            net.Start("kb_spawnpoints_create")
-                net.WriteString(zoneType)
-                net.WriteVector(hitPos)
-                net.WriteFloat(radius)
-            net.SendToServer()
-            
-            frame:Close()
+    for sType, points in pairs(KB_SPAWNPOINTS) do
+        for i, pos in ipairs(points) do
+            local dist = pos:DistToSqr(targetPos)
+            if dist < minDist then
+                minDist = dist
+                nearestType = sType
+                nearestIdx = i
+            end
         end
+    end
+
+    if nearestType and nearestIdx then
+        table.remove(KB_SPAWNPOINTS[nearestType], nearestIdx)
+        KB_SaveSpawnpoints()
+        self:GetOwner():ChatPrint("[Kizney Box] Ближайшая точка (" .. nearestType .. ") удалена.")
+    else
+        self:GetOwner():ChatPrint("[Kizney Box] Поблизости нет точек для удаления.")
     end
 
     return true
 end
 
-function TOOL.BuildCPanel(panel)
-    panel:AddControl("Header", { description = "Выберите тип зоны и нажмите ЛКМ для установки." })
+function TOOL.BuildCPanel(CPanel)
+    CPanel:AddControl("Header", {
+        Text = "Точки Спавна",
+        Description = "Настройка кастомных точек для режимов и команд."
+    })
+
+    local combo = vgui.Create("DComboBox")
+    combo:SetSortItems(false)
+    combo:SetValue("Выберите тип точки...")
     
-    local combo = panel:ComboBox("Тип зоны", "kb_spawnpoints_zonetype")
-    combo:AddChoice("Красная Зона", "red_zone")
+    combo:AddChoice("Рандомный", "random")
+    combo:AddChoice("Синие (Команда 1)", "blue")
+    combo:AddChoice("Красные (Команда 2)", "red")
+
+    combo.OnSelect = function(self, index, value, data)
+        RunConsoleCommand("kb_spawnpoints_type", data)
+    end
+
+    CPanel:AddItem(combo)
 end
 
 if SERVER then
-    util.AddNetworkString("kb_spawnpoints_create")
+    hook.Add("PlayerSelectSpawn", "KB_PlayerSelectSpawn", function(ply, transition)
+        if transition then return end
 
-    net.Receive("kb_spawnpoints_create", function(len, ply)
-        if not ply:IsSuperAdmin() then return end
+        local pool = {}
 
-        local zType = net.ReadString()
-        local pos = net.ReadVector()
-        local radius = net.ReadFloat()
-
-        local mapName = game.GetMap()
-        local dirPath = "kb_spawnpoints/" .. mapName
-        local filePath = dirPath .. "/log.json"
-
-        if not file.Exists(dirPath, "DATA") then
-            file.CreateDir(dirPath)
+        if kb and kb.RD and kb.RD.current_round == "hmcd" then
+            pool = KB_SPAWN_ENTITIES["random"]
+        else
+            local teamID = ply:Team()
+            if teamID == 1 then
+                pool = KB_SPAWN_ENTITIES["blue"]
+            elseif teamID == 2 then
+                pool = KB_SPAWN_ENTITIES["red"]
+            else
+                pool = KB_SPAWN_ENTITIES["random"]
+            end
         end
 
-        local data = {}
-        if file.Exists(filePath, "DATA") then
-            local rawData = file.Read(filePath, "DATA")
-            data = util.JSONToTable(rawData) or {}
+        if pool and #pool > 0 then
+            local selectedEnt = pool[math.random(1, #pool)]
+            if IsValid(selectedEnt) then
+                return selectedEnt
+            end
         end
-
-        table.insert(data, {
-            type = zType,
-            pos = pos,
-            radius = radius
-        })
-
-        file.Write(filePath, util.TableToJSON(data, true))
+        
     end)
 end

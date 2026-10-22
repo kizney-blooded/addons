@@ -9,32 +9,16 @@ local red_zona = {
     start_time = 0
 }
 
-function create_redzona()
-    local mapName = game.GetMap()
-    local filePath = "kb_spawnpoints/" .. mapName .. "/log.json"
-    
-    if not file.Exists(filePath, "DATA") then
-        return false
+concommand.Add("startzona", function(ply, cmd, args)
+    if IsValid(ply) and not ply:IsSuperAdmin() then return end
+
+    if IsValid(ply) then
+        red_zona.center = ply:GetPos()
+    else
+        red_zona.center = Vector(0,0,0)
     end
 
-    local rawData = file.Read(filePath, "DATA")
-    local data = util.JSONToTable(rawData) or {}
-    
-    local redZonePoints = {}
-    for _, point in ipairs(data) do
-        if point.type == "red_zone" then
-            table.insert(redZonePoints, point)
-        end
-    end
-
-    if #redZonePoints == 0 then
-        return false
-    end
-
-    local selectedPoint = redZonePoints[math.random(1, #redZonePoints)]
-
-    red_zona.center = selectedPoint.pos
-    red_zona.initial_radius = selectedPoint.radius or 3000
+    red_zona.initial_radius = 3000
     red_zona.state = true
     red_zona.start_time = CurTime()
 
@@ -45,14 +29,8 @@ function create_redzona()
         net.WriteFloat(red_zona.target_radius)
         net.WriteFloat(red_zona.speed)
     net.Broadcast()
-    
-    PrintMessage(HUD_PRINTTALK, "Красная зона запущена, бегите в центр!")
-    return true
-end
 
-concommand.Add("startzona", function(ply, cmd, args)
-    if IsValid(ply) and not ply:IsSuperAdmin() then return end
-    create_redzona()
+    PrintMessage(HUD_PRINTTALK, "Красная зона запущена")
 end)
 
 hook.Add("PlayerInitialSpawn", "RedZona_Sync_NewPlayers", function(ply)
