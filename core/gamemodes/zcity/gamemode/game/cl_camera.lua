@@ -5,7 +5,15 @@ local smooth_angle = Angle(0,0,0)
 
 local eyes
 
+
+local blacklist_weps = {
+    ["weapon_physgun"] = true,
+    ["gmod_tool"] = true,
+}
+
 hook.Add( "CalcView", "MyCalcView", function( ply, pos, angles, fov )
+
+    local set_fov = 100
 
     if ply:Alive() then
 
@@ -19,11 +27,11 @@ hook.Add( "CalcView", "MyCalcView", function( ply, pos, angles, fov )
             local view = {
                 origin = pos,
                 angles = angles,
-                fov = fov,
+                fov = set_fov,
                 drawviewer = true,
                 znear = 1
             } 
-            return 
+            return view 
         end
         
     end
@@ -39,9 +47,20 @@ hook.Add( "CalcView", "MyCalcView", function( ply, pos, angles, fov )
     local result_angle = smooth_angle + punch
 
     local set_origin = ply:Alive() and eyes and eyes.Pos or pos
-    local set_fov = 100
 
     local wep = ply:GetActiveWeapon()
+
+    if blacklist_weps[wep:GetClass()] then 
+        local view = {
+            origin = pos,
+            angles = angles,
+            fov = set_fov,
+            drawviewer = false,
+            znear = 1
+        } 
+        return view
+    end
+
     if IsValid(wep) and wep.calcview_sight then
         set_origin, result_angle, set_fov = wep:calcview_sight(ply, set_origin, result_angle, set_fov)
     end
