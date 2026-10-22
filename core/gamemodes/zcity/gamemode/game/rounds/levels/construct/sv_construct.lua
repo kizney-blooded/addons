@@ -1,11 +1,11 @@
-constract.RoundTime = 60
+constract.RoundTime = 120
 
 function constract.StartRound()
-    kb.RD.disable_respawn_time = CurTime() + 30
+    kb.RD.disable_respawn_time = CurTime() + 60
     for _ , ply in player.Iterator() do
         ply:Spawn()
 
-        ply:SetTeam(1)
+        --ply:SetTeam(1)
 
         ply:SetPlayerColor(Vector(math.random(1,255)/255,math.random(1,255)/255,math.random(1,255)/255))
     end

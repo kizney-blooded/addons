@@ -214,7 +214,7 @@ if SERVER then
 
         local pool = {}
 
-        if kb and kb.RD and kb.RD.current_round == "hmcd" then
+        if kb.RD.current_round == "hmcd" then
             pool = KB_SPAWN_ENTITIES["random"]
         else
             local teamID = ply:Team()
@@ -228,7 +228,30 @@ if SERVER then
         end
 
         if pool and #pool > 0 then
-            local selectedEnt = pool[math.random(1, #pool)]
+            local free_pool = {}
+            local check_radius = 64
+
+            for _, spawnEnt in ipairs(pool) do
+                if IsValid(spawnEnt) then
+                    local is_free = true
+                    local nearby_ents = ents.FindInSphere(spawnEnt:GetPos(), check_radius)
+                    
+                    for _, ent in ipairs(nearby_ents) do
+                        if ent:IsPlayer() and ent:Alive() and ent ~= ply then
+                            is_free = false
+                            break
+                        end
+                    end
+
+                    if is_free then
+                        table.insert(free_pool, spawnEnt)
+                    end
+                end
+            end
+
+            local final_pool = (#free_pool > 0) and free_pool or pool
+            local selectedEnt = final_pool[math.random(1, #final_pool)]
+            
             if IsValid(selectedEnt) then
                 return selectedEnt
             end
