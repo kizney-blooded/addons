@@ -48,6 +48,10 @@ function playermeta:create_fake(vel)
 
     rag:Spawn()
 
+    rag:AddCallback("PhysicsCollide", function(outEnt, data) 
+        hook.Run("Ragdoll Collide", rag, data) 
+    end)
+
     if self.kb_hitgroup_hp then
         rag.kb_hitgroup_hp = table.Copy(self.kb_hitgroup_hp)
     end
