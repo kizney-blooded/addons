@@ -40,6 +40,12 @@ function playermeta:create_fake(vel)
     self:SetSolid(SOLID_NONE)
     self:SetMoveType(MOVETYPE_NONE)
 
+    local wep = self:GetActiveWeapon()
+    if IsValid(wep) then
+        wep:SetNoDraw(true)
+        wep:DrawShadow(false)
+    end
+
     rag:Spawn()
 
     if IsValid(rag) then
@@ -98,6 +104,12 @@ function playermeta:exit_fake()
     self:SetSolid(SOLID_BBOX)
     self:SetMoveType(MOVETYPE_WALK)
 
+    local wep = self:GetActiveWeapon()
+    if IsValid(wep) then
+        wep:SetNoDraw(false)
+        wep:DrawShadow(true)
+    end
+
     self:SetNWEntity("FakeRagdoll", NULL)
 end
 
@@ -119,6 +131,22 @@ concommand.Add("fake",function(ply)
         ply:create_fake()
     else
         ply:exit_fake()
+    end
+end)
+
+hook.Add("PreCleanupMap", "WakeUpFakesOnCleanup", function()
+    for ply in pairs(ActiveFakes) do
+        if IsValid(ply) and IsValid(ply.FakeRagdoll) then
+            ply:exit_fake()
+        end
+    end
+end)
+
+
+hook.Add("OnPhysgunPickup","Auto_Fake",function(ply,ent)
+    if not IsValid(ply.FakeRagdoll) then
+        ent:create_fake()
+        ply:DropObject()
     end
 end)
 
