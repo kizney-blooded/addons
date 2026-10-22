@@ -48,6 +48,10 @@ function playermeta:create_fake(vel)
 
     rag:Spawn()
 
+    if self.kb_hitgroup_hp then
+        rag.kb_hitgroup_hp = table.Copy(self.kb_hitgroup_hp)
+    end
+
     if IsValid(rag) then
         self.FakeRagdoll = rag
         self:SetNWEntity("FakeRagdoll", rag)
@@ -91,6 +95,10 @@ function playermeta:exit_fake()
     if IsValid(rag) then
         local rag_pos = rag:GetPos()
         local rag_ang = rag:GetAngles()
+
+        if rag.kb_hitgroup_hp then
+            self.kb_hitgroup_hp = table.Copy(rag.kb_hitgroup_hp)
+        end
 
         rag:Remove()
 
