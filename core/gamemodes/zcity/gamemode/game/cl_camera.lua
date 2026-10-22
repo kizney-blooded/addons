@@ -99,7 +99,7 @@ hook.Add("Think","HideHead",function()
 end)
 
 local hide = {
-	["CHudHealth"] = true,
+	--["CHudHealth"] = true,
 	["CHudBattery"] = true,
     ["CHudCrosshair"] = true,
     
@@ -112,7 +112,11 @@ hook.Add( "HUDShouldDraw", "HideHUD", function( name )if ( hide[ name ] ) then r
 
 hook.Add("InputMouseApply", "asdasd2", function(cmd, x, y, angle)
 	local ply = LocalPlayer()
-	if not IsValid(ply) or not ply:Alive() then return end
+	if not IsValid(ply) or not ply:Alive() then 
+        angle[3] = 0
+		cmd:SetViewAngles(angle)
+        return 
+    end
 	
 	local follow = ply:GetNWEntity("FakeRagdoll")
     
