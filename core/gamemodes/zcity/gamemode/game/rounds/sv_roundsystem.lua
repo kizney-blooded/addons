@@ -60,6 +60,10 @@ function EndRoundSV(winner)
     kb.RD.state = 2
     kb.RD.winner = winner or "Неизвестный"
 
+    if remove_redzona then
+        remove_redzona()
+    end
+
     PrintMessage(3, "Раунд закончен.")
     PrintMessage(3, "Победили - " .. kb.RD.winner)
 

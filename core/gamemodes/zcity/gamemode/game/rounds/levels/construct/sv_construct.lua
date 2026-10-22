@@ -2,6 +2,7 @@ constract.RoundTime = 120
 
 function constract.StartRound()
     kb.RD.disable_respawn_time = CurTime() + 60
+    kb.RD.redzona_started = false
     for _ , ply in player.Iterator() do
         ply:Spawn()
 
@@ -12,14 +13,21 @@ function constract.StartRound()
 end
 
 function constract.LogicRound()
-    --[[local alives = 0
-    for _ , ply in player.Iterator() do
-        if IsValid(ply) and ply:Alive() then
-            alives = alives + 1
+    if kb.RD.disable_respawn_time and CurTime() >= kb.RD.disable_respawn_time then
+        if not kb.RD.redzona_started then
+            kb.RD.redzona_started = true
+            create_redzona()
+        end
+
+        local alives = 0
+        for _ , ply in player.Iterator() do
+            if IsValid(ply) and ply:Alive() then
+                alives = alives + 1
+            end
+        end
+
+        if alives == 1 then 
+            EndRoundSV("Выживший")
         end
     end
-
-    if alives == 1 then 
-        EndRoundSV("Выживший")
-    end--]]
 end

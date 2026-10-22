@@ -11,14 +11,15 @@ if CLIENT then
     language.Add("tool.kb_spawnpoints.left", "ЛКМ: Установить точку")
     language.Add("tool.kb_spawnpoints.right", "ПКМ: Удалить ближайшую точку")
     
-    KB_SPAWNPOINTS_CLIENT = KB_SPAWNPOINTS_CLIENT or { random = {}, blue = {}, red = {} }
+    KB_SPAWNPOINTS_CLIENT = KB_SPAWNPOINTS_CLIENT or { random = {}, blue = {}, red = {}, redzona = {} }
 end
 
 if SERVER then
     util.AddNetworkString("kb_spawnpoints_update")
+    util.AddNetworkString("kb_create_redzona")
 
-    KB_SPAWNPOINTS = KB_SPAWNPOINTS or { random = {}, blue = {}, red = {} }
-    KB_SPAWN_ENTITIES = KB_SPAWN_ENTITIES or { random = {}, blue = {}, red = {} }
+    KB_SPAWNPOINTS = KB_SPAWNPOINTS or { random = {}, blue = {}, red = {}, redzona = {} }
+    KB_SPAWN_ENTITIES = KB_SPAWN_ENTITIES or { random = {}, blue = {}, red = {}, redzona = {} }
 
     local function GetDirPath()
         return "data_spawnpoints/" .. game.GetMap()
@@ -34,9 +35,10 @@ if SERVER then
                 if IsValid(ent) then ent:Remove() end
             end
         end
-        KB_SPAWN_ENTITIES = { random = {}, blue = {}, red = {} }
+        KB_SPAWN_ENTITIES = { random = {}, blue = {}, red = {}, redzona = {} }
 
         for sType, points in pairs(KB_SPAWNPOINTS) do
+            if sType == "redzona" then continue end -- Красной зоне не нужны энтити info_target
             for _, pos in ipairs(points) do
                 local ent = ents.Create("info_target")
                 ent:SetPos(pos)
@@ -60,7 +62,7 @@ if SERVER then
         if file.Exists(f, "DATA") then
             local data = file.Read(f, "DATA")
             if data then
-                KB_SPAWNPOINTS = util.JSONToTable(data) or { random = {}, blue = {}, red = {} }
+                KB_SPAWNPOINTS = util.JSONToTable(data) or { random = {}, blue = {}, red = {}, redzona = {} }
             end
         end
         RefreshSpawnEntities()
@@ -76,11 +78,24 @@ if SERVER then
     end
 
     hook.Add("InitPostEntity", "KB_InitSpawnpoints", KB_LoadSpawnpoints)
+
+    hook.Add("PostCleanupMap", "KB_RestoreSpawnpoints", function()
+        KB_LoadSpawnpoints()
+    end)
     
     hook.Add("PlayerInitialSpawn", "KB_SyncSpawnpoints", function(ply)
         net.Start("kb_spawnpoints_update")
         net.WriteTable(KB_SPAWNPOINTS)
         net.Send(ply)
+    end)
+
+    net.Receive("kb_create_redzona", function(len, ply)
+        local pos = net.ReadVector()
+        local radius = net.ReadFloat()
+
+        KB_SPAWNPOINTS["redzona"] = {}
+        table.insert(KB_SPAWNPOINTS["redzona"], {pos = pos, radius = radius})
+        KB_SaveSpawnpoints()
     end)
     
     KB_LoadSpawnpoints()
@@ -102,23 +117,23 @@ if CLIENT then
         local colors = {
             random = Color(255, 255, 255, 150),
             blue = Color(50, 150, 255, 150),
-            red = Color(255, 50, 50, 150)
-        }
-        
-        local wire_colors = {
-            random = Color(255, 255, 255, 255),
-            blue = Color(50, 150, 255, 255),
-            red = Color(255, 50, 50, 255)
+            red = Color(255, 50, 50, 150),
+            redzona = Color(255, 0, 0, 50)
         }
 
         render.SetColorMaterial()
         for sType, points in pairs(KB_SPAWNPOINTS_CLIENT) do
             local fillCol = colors[sType] or colors["random"]
-            local wireCol = wire_colors[sType] or wire_colors["random"]
             
-            for _, pos in ipairs(points) do
-                render.DrawSphere(pos, 10, 16, 16, fillCol)
-                --render.DrawWireframeSphere(pos, 10, 16, 16, wireCol)
+            for _, data in ipairs(points) do
+                if sType == "redzona" then
+                    render.CullMode( MATERIAL_CULLMODE_CW )
+                    render.DrawSphere( data.pos, data.radius, 30, 30, fillCol )
+                    render.CullMode( MATERIAL_CULLMODE_CCW )
+                    render.DrawSphere( data.pos, data.radius, 30, 30, fillCol )
+                else
+                    render.DrawSphere(data, 10, 16, 16, fillCol)
+                end
             end
         end
     end)
@@ -132,10 +147,14 @@ if CLIENT then
         if GetConVar("gmod_toolmode"):GetString() ~= "kb_spawnpoints" then return end
 
         for sType, points in pairs(KB_SPAWNPOINTS_CLIENT) do
-            for _, pos in ipairs(points) do
+            for _, data in ipairs(points) do
+                local pos = (sType == "redzona") and data.pos or data
                 local screen = pos:ToScreen()
+                
                 if screen.visible then
-                    draw.SimpleText(string.upper(sType), "DermaDefaultBold", screen.x, screen.y - 15, Color(255, 255, 255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+                    local txt = string.upper(sType)
+                    if sType == "redzona" then txt = txt .. " (R: " .. data.radius .. ")" end
+                    draw.SimpleText(txt, "DermaDefaultBold", screen.x, screen.y - 15, Color(255, 255, 255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
                 end
             end
         end
@@ -143,12 +162,49 @@ if CLIENT then
 end
 
 function TOOL:LeftClick(trace)
-    if CLIENT then return true end
-
     local spawnType = self:GetClientInfo("type")
-    if spawnType ~= "random" and spawnType ~= "blue" and spawnType ~= "red" then
+    if spawnType ~= "random" and spawnType ~= "blue" and spawnType ~= "red" and spawnType ~= "redzona" then
         spawnType = "random"
     end
+
+    if spawnType == "redzona" then
+        if CLIENT then
+            local hitPos = trace.HitPos
+            
+            local frame = vgui.Create("DFrame")
+            frame:SetSize(300, 150)
+            frame:Center()
+            frame:SetTitle("Радиус Красной Зоны")
+            frame:MakePopup()
+
+            local label = vgui.Create("DLabel", frame)
+            label:SetPos(10, 30)
+            label:SetSize(280, 20)
+            label:SetText("Введите радиус красной зоны:")
+
+            local entry = vgui.Create("DTextEntry", frame)
+            entry:SetPos(10, 60)
+            entry:SetSize(280, 25)
+            entry:SetNumeric(true)
+            entry:SetValue("3000")
+
+            local btn = vgui.Create("DButton", frame)
+            btn:SetPos(10, 100)
+            btn:SetSize(280, 30)
+            btn:SetText("Создать")
+            btn.DoClick = function()
+                local radius = tonumber(entry:GetValue()) or 3000
+                net.Start("kb_create_redzona")
+                    net.WriteVector(hitPos)
+                    net.WriteFloat(radius)
+                net.SendToServer()
+                frame:Close()
+            end
+        end
+        return true
+    end
+
+    if CLIENT then return true end
 
     table.insert(KB_SPAWNPOINTS[spawnType], trace.HitPos)
     KB_SaveSpawnpoints()
@@ -166,7 +222,8 @@ function TOOL:RightClick(trace)
     local minDist = 10000 -- (100^2)
 
     for sType, points in pairs(KB_SPAWNPOINTS) do
-        for i, pos in ipairs(points) do
+        for i, data in ipairs(points) do
+            local pos = (sType == "redzona") and data.pos or data
             local dist = pos:DistToSqr(targetPos)
             if dist < minDist then
                 minDist = dist
@@ -200,6 +257,7 @@ function TOOL.BuildCPanel(CPanel)
     combo:AddChoice("Рандомный", "random")
     combo:AddChoice("Синие (Команда 1)", "blue")
     combo:AddChoice("Красные (Команда 2)", "red")
+    combo:AddChoice("Красная зона", "redzona")
 
     combo.OnSelect = function(self, index, value, data)
         RunConsoleCommand("kb_spawnpoints_type", data)
@@ -256,6 +314,6 @@ if SERVER then
                 return selectedEnt
             end
         end
-        
+
     end)
 end

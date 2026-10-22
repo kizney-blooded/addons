@@ -33,6 +33,39 @@ concommand.Add("startzona", function(ply, cmd, args)
     PrintMessage(HUD_PRINTTALK, "Красная зона запущена")
 end)
 
+function create_redzona()
+    if not KB_SPAWNPOINTS or not KB_SPAWNPOINTS.redzona or #KB_SPAWNPOINTS.redzona == 0 then
+        return 
+    end
+
+    local zoneData = KB_SPAWNPOINTS.redzona[1]
+
+    red_zona.center = zoneData.pos
+    red_zona.initial_radius = zoneData.radius
+    red_zona.state = true
+    red_zona.start_time = CurTime()
+
+    net.Start("red_zona_data")
+        net.WriteBool(red_zona.state)
+        net.WriteVector(red_zona.center)
+        net.WriteFloat(red_zona.initial_radius)
+        net.WriteFloat(red_zona.target_radius)
+        net.WriteFloat(red_zona.speed)
+    net.Broadcast()
+
+    PrintMessage(HUD_PRINTTALK, "Красная зона запущена! Бегите в центр.")
+end
+
+function remove_redzona()
+    if not red_zona.state then return end
+
+    red_zona.state = false 
+
+    net.Start("red_zona_data")
+        net.WriteBool(red_zona.state) 
+    net.Broadcast()
+end
+
 hook.Add("PlayerInitialSpawn", "RedZona_Sync_NewPlayers", function(ply)
     if red_zona.state then
         local time_passed = CurTime() - red_zona.start_time
