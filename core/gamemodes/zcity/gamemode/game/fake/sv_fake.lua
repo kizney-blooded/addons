@@ -175,7 +175,7 @@ end)
 
 
 hook.Add("OnPhysgunPickup","Auto_Fake",function(ply,ent)
-    if not IsValid(ply.FakeRagdoll) then
+    if ent:IsPlayer() and not IsValid(ply.FakeRagdoll) then
         ent:create_fake()
         ply:DropObject()
     end
