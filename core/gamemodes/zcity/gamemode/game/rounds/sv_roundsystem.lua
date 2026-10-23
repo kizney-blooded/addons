@@ -32,6 +32,7 @@ hook.Add("PlayerDisconnected","LeftPlayer",function(ply)
 end)
 
 function StartRoundSV()
+    game.CleanUpMap(false)
     if kb.RD.state == 1 then return end
     kb.RD.state = 1
     kb.RD.winner = nil

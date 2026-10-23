@@ -7,7 +7,7 @@ net.Receive("kb_data",function()
 end)
 
 hook.Add("HUDPaint","TimerRound",function()
-    if kb.RD.state == 2 then return end
+    if kb.RD.state != 1 then return end
     local w, h = ScrW() , ScrH()
     local time_left = 0
     local respawn_time_left = 0
