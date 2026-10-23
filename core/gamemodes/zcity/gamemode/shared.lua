@@ -23,3 +23,5 @@ if CLIENT then
         return 0,0
     end)
 end
+
+function GM:HUDDrawTargetID() return false end
