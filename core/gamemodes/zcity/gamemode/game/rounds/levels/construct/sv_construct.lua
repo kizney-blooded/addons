@@ -10,6 +10,8 @@ function constract.StartRound()
 
         ply:SetPlayerColor(Vector(math.random(1,255)/255,math.random(1,255)/255,math.random(1,255)/255))
     end
+
+    spawn_lootboxes()
 end
 
 function constract.LogicRound()
