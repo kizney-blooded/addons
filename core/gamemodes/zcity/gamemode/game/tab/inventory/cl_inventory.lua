@@ -26,13 +26,24 @@ function Frame_Inventory()
     main_inventory:SetAlpha(0)
     main_inventory.isClosing = false
 
-    local modelWidth = 400
+    local modelWidth = 380
     local plyModel = vgui.Create("DModelPanel", main_inventory)
-    plyModel:SetSize(modelWidth, ScrH() * 0.9)
-    plyModel:SetPos(50, ScrH() * 0.05) 
+    plyModel:SetSize(modelWidth, ScrH() * 0.7)
+    plyModel:SetPos(200, ScrH() * 0.1) 
     plyModel:SetModel(LocalPlayer():GetModel())
+
+    local oldPaint = plyModel.Paint
+    plyModel.Paint = function(self, w, h)
+        draw.RoundedBox(0, 0, 0, w, h, Color(39, 39, 39, 150)) 
+        
+        oldPaint(self, w, h)
+    end
     
     if IsValid(plyModel.Entity) then
+        plyModel.Entity.GetPlayerColor = function()
+            return LocalPlayer():GetPlayerColor()
+        end
+
         plyModel.Entity:SetSkin(LocalPlayer():GetSkin() or 0)
         for _, bg in pairs(LocalPlayer():GetBodyGroups()) do
             plyModel.Entity:SetBodygroup(bg.id, LocalPlayer():GetBodygroup(bg.id))
@@ -40,7 +51,7 @@ function Frame_Inventory()
         
         local mn, mx = plyModel.Entity:GetRenderBounds()
         local size = math.max(math.abs(mn.x) + math.abs(mx.x), math.abs(mn.y) + math.abs(mx.y), math.abs(mn.z) + math.abs(mx.z))
-        plyModel:SetFOV(45)
+        plyModel:SetFOV(38)
         plyModel:SetCamPos(Vector(size * 0.8, 0, size * 0.55)) 
         plyModel:SetLookAt(Vector(0, 0, (mn.z + mx.z) * 0.5))
     end
@@ -53,8 +64,15 @@ function Frame_Inventory()
 
         render.SetBlend(alpha)
         
+        
         if IsValid(self.Entity) then
             self.Entity:DrawModel()
+            
+            if LocalPlayer().EZarmor then
+                self.Entity.EZarmor = LocalPlayer().EZarmor
+                
+                JMod.ArmorPlayerModelDraw(self.Entity, true)
+            end
         end
         
         render.SetBlend(1)
