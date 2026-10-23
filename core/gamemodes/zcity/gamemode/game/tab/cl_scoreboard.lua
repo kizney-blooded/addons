@@ -37,15 +37,17 @@ end
 hook.Add("ScoreboardShow", "CustomScoreboard_Open", function()
     isHolding = true
 
-    timer.Create("TabHoldTimer", holdTime, 1, function()
-        if isHolding then
-            isOtherWindowOpen = true
-            
-            if Frame_Inventory then
-                Frame_Inventory()
+    if LocalPlayer():Alive() then
+        timer.Create("TabHoldTimer", holdTime, 1, function()
+            if isHolding then
+                isOtherWindowOpen = true
+                
+                if Frame_Inventory then
+                    Frame_Inventory()
+                end
             end
-        end
-    end)
+        end)
+    end
     
     return true
 end)
