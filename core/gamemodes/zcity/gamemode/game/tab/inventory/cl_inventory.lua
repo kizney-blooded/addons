@@ -70,7 +70,7 @@ function Frame_Inventory()
     local invH = slotSize
     
     invPanel:SetSize(invW, invH)
-    invPanel:SetPos((ScrW() - invW) / 2, ScrH() - invH - 40)
+    invPanel:SetPos((ScrW() - invW) / 2, ScrH() - invH)
     invPanel.Paint = function() end 
 
     invPanel.Refresh = function(self)
