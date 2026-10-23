@@ -5,7 +5,8 @@ include("shared.lua")
 util.AddNetworkString("KB_OpenLootBox")
 
 function ENT:Initialize()
-    self:SetModel("models/sarma_crates/static_crate_40.mdl")
+    self:SetModel(self.BoxModel or "models/sarma_crates/static_crate_40.mdl")
+    self:SetSkin(self.BoxSkin or 0)
     self:PhysicsInit(SOLID_VPHYSICS)
     self:SetMoveType(MOVETYPE_VPHYSICS)
     self:SetSolid(SOLID_VPHYSICS)
@@ -13,19 +14,21 @@ function ENT:Initialize()
 
     self.Inventory = {}
     
+    local my_loot = self.LootTable or kb.Item_in_Lootboxes
+    
     local total_chance = 0
-    for _, item in ipairs(kb.Item_in_Lootboxes) do
+    for _, item in ipairs(my_loot) do
         total_chance = total_chance + item.chance
     end
 
-    local slots_count = kb.Item_in_Lootboxes.slots or 3
+    local slots_count = my_loot.slots or 3
     
     for i = 1, slots_count do
         local random_val = math.random(1, total_chance)
         local current_sum = 0
         local selected_class = ""
 
-        for _, item in ipairs(kb.Item_in_Lootboxes) do
+        for _, item in ipairs(my_loot) do
             current_sum = current_sum + item.chance
             if random_val <= current_sum then
                 selected_class = item.class

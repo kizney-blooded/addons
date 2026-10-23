@@ -12,3 +12,7 @@ kb.Item_in_Lootboxes = {
     { class = "kb_pist_fiveseven", chance = 50 },
     { class = "weapon_frag", chance = 5 }
 }
+
+ENT.BoxModel = "models/sarma_crates/static_crate_40.mdl"
+ENT.BoxSkin = 0
+ENT.LootTable = kb.Item_in_Lootboxes
