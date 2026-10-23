@@ -11,15 +11,34 @@ if CLIENT then
     language.Add("tool.kb_spawnpoints.left", "ЛКМ: Установить точку")
     language.Add("tool.kb_spawnpoints.right", "ПКМ: Удалить ближайшую точку")
     
-    KB_SPAWNPOINTS_CLIENT = KB_SPAWNPOINTS_CLIENT or { random = {}, blue = {}, red = {}, redzona = {} }
+    KB_SPAWNPOINTS_CLIENT = KB_SPAWNPOINTS_CLIENT or { 
+        random = {}, 
+        blue = {}, 
+        red = {}, 
+        redzona = {}, 
+        lootboxes = {} 
+    }
 end
 
 if SERVER then
     util.AddNetworkString("kb_spawnpoints_update")
     util.AddNetworkString("kb_create_redzona")
 
-    KB_SPAWNPOINTS = KB_SPAWNPOINTS or { random = {}, blue = {}, red = {}, redzona = {} }
-    KB_SPAWN_ENTITIES = KB_SPAWN_ENTITIES or { random = {}, blue = {}, red = {}, redzona = {} }
+    KB_SPAWNPOINTS = KB_SPAWNPOINTS or { 
+        random = {}, 
+        blue = {}, 
+        red = {}, 
+        redzona = {}, 
+        lootboxes = {} 
+    }
+
+    KB_SPAWN_ENTITIES = KB_SPAWN_ENTITIES or { 
+        random = {}, 
+        blue = {}, 
+        red = {}, 
+        redzona = {}, 
+        lootboxes = {} 
+    }
 
     local function GetDirPath()
         return "data_spawnpoints/" .. game.GetMap()
@@ -35,10 +54,17 @@ if SERVER then
                 if IsValid(ent) then ent:Remove() end
             end
         end
-        KB_SPAWN_ENTITIES = { random = {}, blue = {}, red = {}, redzona = {} }
+
+        KB_SPAWN_ENTITIES = { 
+            random = {}, 
+            blue = {}, 
+            red = {}, 
+            redzona = {}, 
+            lootboxes = {} 
+        }
 
         for sType, points in pairs(KB_SPAWNPOINTS) do
-            if sType == "redzona" then continue end -- Красной зоне не нужны энтити info_target
+            if sType == "redzona" or sType == "lootboxes" then continue end -- Зонам и лутбоксам не нужны info_target
             for _, pos in ipairs(points) do
                 local ent = ents.Create("info_target")
                 ent:SetPos(pos)
@@ -46,6 +72,12 @@ if SERVER then
                 table.insert(KB_SPAWN_ENTITIES[sType], ent)
             end
         end
+
+        KB_SPAWNPOINTS.random = KB_SPAWNPOINTS.random or {}
+        KB_SPAWNPOINTS.blue = KB_SPAWNPOINTS.blue or {}
+        KB_SPAWNPOINTS.red = KB_SPAWNPOINTS.red or {}
+        KB_SPAWNPOINTS.redzona = KB_SPAWNPOINTS.redzona or {}
+        KB_SPAWNPOINTS.lootboxes = KB_SPAWNPOINTS.lootboxes or {}
         
         net.Start("kb_spawnpoints_update")
         net.WriteTable(KB_SPAWNPOINTS)
@@ -62,7 +94,13 @@ if SERVER then
         if file.Exists(f, "DATA") then
             local data = file.Read(f, "DATA")
             if data then
-                KB_SPAWNPOINTS = util.JSONToTable(data) or { random = {}, blue = {}, red = {}, redzona = {} }
+                KB_SPAWNPOINTS = util.JSONToTable(data) or { 
+                    random = {}, 
+                    blue = {}, 
+                    red = {}, 
+                    redzona = {}, 
+                    lootboxes = {} 
+                }
             end
         end
         RefreshSpawnEntities()
@@ -99,6 +137,18 @@ if SERVER then
     end)
     
     KB_LoadSpawnpoints()
+
+    function spawn_lootboxes()
+        if not KB_SPAWNPOINTS["lootboxes"] then return end
+        
+        for _, pos in ipairs(KB_SPAWNPOINTS["lootboxes"]) do
+            local ent = ents.Create("ent_lootboxes")
+            if IsValid(ent) then
+                ent:SetPos(pos)
+                ent:Spawn()
+            end
+        end
+    end
 end
 
 if CLIENT then
@@ -118,7 +168,8 @@ if CLIENT then
             random = Color(255, 255, 255, 150),
             blue = Color(50, 150, 255, 150),
             red = Color(255, 50, 50, 150),
-            redzona = Color(255, 0, 0, 50)
+            redzona = Color(255, 0, 0, 50),
+            lootboxes = Color(255, 200, 0, 150)
         }
 
         render.SetColorMaterial()
@@ -163,7 +214,7 @@ end
 
 function TOOL:LeftClick(trace)
     local spawnType = self:GetClientInfo("type")
-    if spawnType ~= "random" and spawnType ~= "blue" and spawnType ~= "red" and spawnType ~= "redzona" then
+    if spawnType ~= "random" and spawnType ~= "blue" and spawnType ~= "red" and spawnType ~= "redzona" and spawnType ~= "lootboxes" then
         spawnType = "random"
     end
 
@@ -206,6 +257,10 @@ function TOOL:LeftClick(trace)
 
     if CLIENT then return true end
 
+    if not KB_SPAWNPOINTS[spawnType] then
+        KB_SPAWNPOINTS[spawnType] = {}
+    end
+
     table.insert(KB_SPAWNPOINTS[spawnType], trace.HitPos)
     KB_SaveSpawnpoints()
 
@@ -247,10 +302,13 @@ end
 function TOOL.BuildCPanel(CPanel)
     CPanel:AddControl("Header", {
         Text = "Точки Спавна",
-        Description = "Настройка кастомных точек для режимов и команд."
+        Description = "Настройка кастомных точек для режимов, команд и энтити."
     })
 
     local combo = vgui.Create("DComboBox")
+    local comboEnts = vgui.Create("DComboBox")
+
+    CPanel:Help("Точки игроков и зон:")
     combo:SetSortItems(false)
     combo:SetValue("Выберите тип точки...")
     
@@ -261,9 +319,21 @@ function TOOL.BuildCPanel(CPanel)
 
     combo.OnSelect = function(self, index, value, data)
         RunConsoleCommand("kb_spawnpoints_type", data)
+        comboEnts:SetValue("Выберите энтити...")
     end
-
     CPanel:AddItem(combo)
+
+    CPanel:Help("Точки спавна энтити:")
+    comboEnts:SetSortItems(false)
+    comboEnts:SetValue("Выберите энтити...")
+    
+    comboEnts:AddChoice("Обычный контейнер (ent_lootboxes)", "lootboxes")
+
+    comboEnts.OnSelect = function(self, index, value, data)
+        RunConsoleCommand("kb_spawnpoints_type", data)
+        combo:SetValue("Выберите тип точки...")
+    end
+    CPanel:AddItem(comboEnts)
 end
 
 if SERVER then
@@ -272,7 +342,7 @@ if SERVER then
 
         local pool = {}
 
-        if kb.RD.current_round == "hmcd" then
+        if kb and kb.RD and kb.RD.current_round == "hmcd" then
             pool = KB_SPAWN_ENTITIES["random"]
         else
             local teamID = ply:Team()
