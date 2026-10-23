@@ -1,14 +1,21 @@
 constract.RoundTime = 10800
 
+function spawn_construct_player(ply)
+    ply:Spawn()
+
+    --ply:SetTeam(1)
+
+    ply:Give("weapon_physgun")
+    ply:Give('gmod_tool')
+
+    ply:SetPlayerColor(Vector(math.random(1,255)/255,math.random(1,255)/255,math.random(1,255)/255))
+end
+
 function constract.StartRound()
     kb.RD.disable_respawn_time = CurTime() + 8900
     kb.RD.redzona_started = false
     for _ , ply in player.Iterator() do
-        ply:Spawn()
-
-        --ply:SetTeam(1)
-
-        ply:SetPlayerColor(Vector(math.random(1,255)/255,math.random(1,255)/255,math.random(1,255)/255))
+        spawn_construct_player(ply)
     end
 
     spawn_lootboxes()
