@@ -17,3 +17,9 @@ function GM:PlayerFootstep(ply,pos,foot,snd,volume,filter)
 end
 
 function GM:PlayerDeathSound(ply) return true end
+
+if CLIENT then
+    hook.Add("DrawDeathNotice", "nodn", function()
+        return 0,0
+    end)
+end
