@@ -12,6 +12,8 @@ function GM:PlayerSpawn(ply,bool)
     if IsValid(ply) then
         ply:UnSpectate()
 
+        ply:StripWeapons()
+
         ply:RemoveAllAmmo()
 
         ply:AddEFlags(EFL_NO_DAMAGE_FORCES)

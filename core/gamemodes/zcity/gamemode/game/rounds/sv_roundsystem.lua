@@ -104,3 +104,61 @@ local function LogicRoundSV()
 end
 
 hook.Add("Think","Logic", LogicRoundSV)
+
+
+-- команды
+
+hook.Add("PlayerSay","RoundCommands",function(ply,text,team)
+    local args = string.Explode(" ", text)
+    local command = string.lower(args[1])
+
+    if command == "!levelend" then
+        EndRoundSV("Скип раунда")
+        return ""
+    end
+
+    if command == "!levelnext" then
+        local next_mode = args[2] 
+        
+        if next_mode then
+            kb.RD.next_round = next_mode
+            PrintMessage(3, "Следующий режим принудительно изменен на: " .. next_mode)
+            kb_data()
+        else
+            ply:ChatPrint("!levelnext название")
+        end
+        return ""
+    end
+
+    if command == "!bot" then
+        local count = tonumber(args[2]) or 1
+
+        for i = 1, count do
+            RunConsoleCommand("bot")
+        end
+        
+        ply:ChatPrint("Добавляем ботов: " .. count)
+        return ""
+    end
+
+    if command == "!kb" then
+        local count = tonumber(args[2])
+        local bots = player.GetBots()
+
+        if count then
+            local kicked = 0
+            for _, bot in ipairs(bots) do
+                if kicked >= count then break end
+                bot:Kick("Удален администратором")
+                kicked = kicked + 1
+            end
+            ply:ChatPrint("Удалено ботов: " .. kicked)
+        else
+            for _, bot in ipairs(bots) do
+                bot:Kick("Массовое удаление ботов")
+            end
+            ply:ChatPrint("Все боты удалены.")
+        end
+        return ""
+    end
+end)
