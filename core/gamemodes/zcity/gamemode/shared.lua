@@ -15,3 +15,5 @@ function GM:PlayerFootstep(ply,pos,foot,snd,volume,filter)
     if IsValid(ply:GetNWEntity("FakeRagdoll")) then return true end
     return false
 end
+
+function GM:PlayerDeathSound(ply) return true end
