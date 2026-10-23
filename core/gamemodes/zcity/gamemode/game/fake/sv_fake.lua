@@ -39,6 +39,7 @@ function playermeta:create_fake(vel)
     self:SetNoDraw(true)
     self:SetSolid(SOLID_NONE)
     self:SetMoveType(MOVETYPE_NONE)
+    self:SetNoTarget(true)
 
     local wep = self:GetActiveWeapon()
     if IsValid(wep) then
@@ -53,6 +54,27 @@ function playermeta:create_fake(vel)
         self:SetNWEntity("FakeRagdoll", rag)
 
         rag.FakePlayer = self
+
+        local bullseye = ents.Create("npc_bullseye")
+        local bodyphy = rag:GetPhysicsObjectNum(10)
+        if IsValid(bullseye) then
+            bullseye:SetPos(bodyphy:GetPos()+bodyphy:GetAngles():Right()*7)
+            bullseye:SetMoveType( MOVETYPE_OBSERVER )
+			bullseye:SetParent(rag,rag:LookupAttachment("eyes"))
+            bullseye:SetHealth(999999)
+            bullseye:Spawn()
+            bullseye:Activate()
+            bullseye:SetNotSolid(true)
+
+            
+            self.FakeBullseye = bullseye
+
+            for _, ent in ipairs(ents.GetAll()) do
+                if ent:IsNPC() then
+                    ent:AddEntityRelationship(bullseye, D_HT, 0)
+                end
+            end
+        end
 
         rag:AddCallback("PhysicsCollide", function(ent, data)
             hook.Run("Ragdoll Collide", ent, data)
@@ -111,6 +133,7 @@ function playermeta:exit_fake()
     self:SetNoDraw(false)
     self:SetSolid(SOLID_BBOX)
     self:SetMoveType(MOVETYPE_WALK)
+    self:SetNoTarget(false)
 
     local wep = self:GetActiveWeapon()
     if IsValid(wep) then
@@ -160,6 +183,12 @@ end)
 
 
 hook.Add("PlayerDeath","DeathFake",function(ply,inf,att)
+
+    if IsValid(ply.FakeBullseye) then
+        ply.FakeBullseye:Remove()
+        ply.FakeBullseye = nil
+    end
+
     if not IsValid(ply.FakeRagdoll) then
         ply:create_fake()
     end
