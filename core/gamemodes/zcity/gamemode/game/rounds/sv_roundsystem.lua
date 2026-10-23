@@ -45,6 +45,8 @@ function StartRoundSV()
 
     _G[kb.RD.current_round].StartRound()
 
+    RunConsoleCommand("hostname", "KB Server #1 " .. _G[kb.RD.current_round].Name .. " | Быстрый запуск")
+
     local round_duration = _G[kb.RD.current_round].RoundTime or 300
     kb.RD.time_round = CurTime() + round_duration
 
