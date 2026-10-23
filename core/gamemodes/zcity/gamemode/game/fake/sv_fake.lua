@@ -184,13 +184,13 @@ end)
 
 hook.Add("PlayerDeath","DeathFake",function(ply,inf,att)
 
+    if not IsValid(ply.FakeRagdoll) then
+        ply:create_fake()
+    end
+
     if IsValid(ply.FakeBullseye) then
         ply.FakeBullseye:Remove()
         ply.FakeBullseye = nil
-    end
-
-    if not IsValid(ply.FakeRagdoll) then
-        ply:create_fake()
     end
 
     if IsValid(ply.FakeRagdoll) then
