@@ -51,6 +51,12 @@ function playermeta:create_fake(vel)
     if IsValid(rag) then
         self.FakeRagdoll = rag
         self:SetNWEntity("FakeRagdoll", rag)
+
+        rag.FakePlayer = self
+
+        rag:AddCallback("PhysicsCollide", function(ent, data)
+            hook.Run("Ragdoll Collide", ent, data)
+        end)
     end
 
     rag:Activate()
@@ -85,6 +91,8 @@ end
 
 function playermeta:exit_fake()
     local rag = self.FakeRagdoll
+
+    rag.FakePlayer = nil
 
     ActiveFakes[self] = nil
 
@@ -155,6 +163,12 @@ hook.Add("PlayerDeath","DeathFake",function(ply,inf,att)
     if not IsValid(ply.FakeRagdoll) then
         ply:create_fake()
     end
+
+    if IsValid(ply.FakeRagdoll) then
+        ply.FakeRagdoll.FakePlayer = nil
+    end
+
+    ActiveFakes[ply] = nil
 
     ply:SetNWEntity("FakeRagdoll", NULL)
     ply.FakeRagdoll = nil
