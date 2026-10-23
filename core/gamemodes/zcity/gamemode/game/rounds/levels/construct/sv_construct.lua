@@ -1,7 +1,7 @@
-constract.RoundTime = 120
+constract.RoundTime = 10800
 
 function constract.StartRound()
-    kb.RD.disable_respawn_time = CurTime() + 60
+    kb.RD.disable_respawn_time = CurTime() + 8900
     kb.RD.redzona_started = false
     for _ , ply in player.Iterator() do
         ply:Spawn()

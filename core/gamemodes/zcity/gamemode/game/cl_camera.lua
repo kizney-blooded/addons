@@ -99,7 +99,7 @@ hook.Add("Think","HideHead",function()
 end)
 
 local hide = {
-	--["CHudHealth"] = true,
+	["CHudHealth"] = true,
 	["CHudBattery"] = true,
     ["CHudCrosshair"] = true,
     
