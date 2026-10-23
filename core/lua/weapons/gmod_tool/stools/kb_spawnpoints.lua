@@ -169,7 +169,7 @@ if CLIENT then
             blue = Color(50, 150, 255, 150),
             red = Color(255, 50, 50, 150),
             redzona = Color(255, 0, 0, 50),
-            lootboxes = Color(255, 200, 0, 150)
+            lootboxes = Color(12, 75, 15, 150)
         }
 
         render.SetColorMaterial()
@@ -182,8 +182,18 @@ if CLIENT then
                     render.DrawSphere( data.pos, data.radius, 30, 30, fillCol )
                     render.CullMode( MATERIAL_CULLMODE_CCW )
                     render.DrawSphere( data.pos, data.radius, 30, 30, fillCol )
+                elseif sType == "lootboxes" then
+                    local boxMins = Vector(-20, -20, 0) 
+                    local boxMaxs = Vector(20, 20, 40) 
+                    
+                    render.DrawBox(data, Angle(0,0,0), boxMins, boxMaxs, fillCol)
+                    render.DrawWireframeBox(data, Angle(0,0,0), boxMins, boxMaxs, color_white, true)
                 else
-                    render.DrawSphere(data, 10, 16, 16, fillCol)
+                    local plyMins = Vector(-16, -16, 0)
+                    local plyMaxs = Vector(16, 16, 80)
+                    
+                    render.DrawBox(data, Angle(0,0,0), plyMins, plyMaxs, fillCol)
+                    render.DrawWireframeBox(data, Angle(0,0,0), plyMins, plyMaxs, color_white, true)
                 end
             end
         end
