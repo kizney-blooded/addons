@@ -10,9 +10,11 @@ kb = kb or {}
 
 kb.Food_in_Lootboxes = {
     slots = 3,
-    { class = "item_water", chance = 50 },
-    { class = "item_bread", chance = 40 },
-    { class = "item_canned_food", chance = 10 }
+    { class = "food_lays", chance = 50 },
+    { class = "food_milk", chance = 40 },
+    { class = "food_sok", chance = 40 },
+    { class = "food_burger", chance = 40 },
+    { class = "food_apple", chance = 40 },
 }
 
 ENT.BoxModel = "models/sarma_crates/static_crate_40.mdl"

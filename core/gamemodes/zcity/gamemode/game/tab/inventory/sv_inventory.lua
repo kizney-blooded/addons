@@ -6,7 +6,7 @@ net.Receive("KB_ClaimLoot", function(len, ply)
     local item_index = net.ReadUInt(8)
 
     if not IsValid(ply) or not ply:IsPlayer() then return end
-    if not IsValid(box_ent) or box_ent:GetClass() ~= "ent_lootboxes" then return end
+    if not IsValid(box_ent) then return end
     
     if ply:GetPos():DistToSqr(box_ent:GetPos()) > 40000 then return end
 

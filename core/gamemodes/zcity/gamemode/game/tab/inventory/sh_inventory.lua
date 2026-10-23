@@ -17,6 +17,8 @@ function kb.GetItemRarityColor(class)
 
     if kb.RarityItems[class] then
         rarity = kb.RarityItems[class]
+    elseif string.StartWith(class, "food_") then
+        rarity = 2
     elseif string.StartWith(class, "kb_") then
         rarity = 3
     end
