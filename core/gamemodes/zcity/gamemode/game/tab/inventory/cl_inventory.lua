@@ -231,14 +231,30 @@ function Frame_Inventory()
     invPanel.Paint = function() end 
 
     invPanel.Refresh = function(self)
+
+        local pending_claims = {}
+        for _, slot in ipairs(self:GetChildren()) do -- получение-детей
+            if slot.PendingClaim then
+                table.insert(pending_claims, slot.PendingClaim)
+            end
+        end
+
         self:Clear()
 
         local weps = LocalPlayer():GetWeapons()
         local valid_weps = {}
+        local real_classes = {}
         
         for _, wep in ipairs(weps) do
             if IsValid(wep) and not weapon_blacklist[wep:GetClass()] then
                 table.insert(valid_weps, wep)
+            end
+        end
+
+        local active_pending = {}
+        for _, class in ipairs(pending_claims) do
+            if not real_classes[class] then
+                table.insert(active_pending, class)
             end
         end
 
@@ -248,6 +264,10 @@ function Frame_Inventory()
             slotPanel:SetPos((i - 1) * (slotSize + spacing), 0)
             
             local wep = valid_weps[i]
+
+            if not IsValid(wep) and #active_pending > 0 then
+                slotPanel.PendingClaim = table.remove(active_pending, 1)
+            end
             
             slotPanel.Paint = function(s, w, h)
                 draw.RoundedBox(0, 0, 0, w, h, Color(39, 39, 39))
@@ -260,6 +280,29 @@ function Frame_Inventory()
 
                 if s:IsHovered() then
                     draw.RoundedBox(0, 0, 0, w, h, Color(255, 255, 255, 2))
+                end
+
+                if s.PendingClaim then
+                    local class = s.PendingClaim
+                    local rarityColor = kb.GetItemRarityColor(class)
+                    
+                    surface.SetDrawColor(rarityColor.r, rarityColor.g, rarityColor.b, 50)
+                    surface.SetMaterial(gradient_down)
+                    surface.DrawTexturedRect(0, 0, w, h)
+
+                    local wepData = weapons.GetStored(class)
+                    if wepData then
+                        local sx, sy = s:LocalToScreen(0, -15)
+                        KB_DrawWeaponSelection(wepData, sx, sy, w, h, 255)
+                    end
+                    
+                    local printName = (wepData and wepData.PrintName) and wepData.PrintName or language.GetPhrase(class)
+                    if printName == class then printName = class end
+                    
+                    draw.SimpleText(printName, "DermaDefault", w / 2, h - 6, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_BOTTOM)
+                    
+                    surface.SetDrawColor(rarityColor.r, rarityColor.g, rarityColor.b, 50)
+                    surface.DrawRect(0, h - 3, w, 3)
                 end
             end
 
@@ -348,6 +391,15 @@ function Frame_Inventory()
             local iw, ih = invPanel:GetSize()
 
             if mx < ix or mx > (ix + iw) or my < iy or my > (iy + ih) then
+
+                if IsValid(lootbox_frame) and not lootbox_frame.isClosing then
+                    local lx, ly = lootbox_frame:LocalToScreen(0, 0)
+                    local lw, lh = lootbox_frame:GetSize()
+                    if mx >= lx and mx <= (lx + lw) and my >= ly and my <= (ly + lh) then
+                        return 
+                    end
+                end
+
                 net.Start("KB_DropWeapon_Action")
                 net.WriteString(pnl.WepClass)
                 net.SendToServer()
@@ -406,7 +458,9 @@ net.Receive("KB_OpenLootBox", function()
 
     Frame_Inventory()
 
-    if not IsValid(lootbox_frame) then 
+    local isUpdating = IsValid(lootbox_frame)
+
+    if not isUpdating then
         main_inventory:SetKeyboardInputEnabled(true)
 
         lootbox_frame = vgui.Create("DFrame", main_inventory)
@@ -479,6 +533,12 @@ net.Receive("KB_OpenLootBox", function()
         slotPanel.SetPos = function(self, x, y)
             self.TargetX = x
             self.TargetY = y
+
+            if isUpdating then
+                self.CurrentX = x
+                self:RealSetPos(x, y)
+            end
+            
         end
 
         slotPanel.Think = function(self)
@@ -509,6 +569,51 @@ net.Receive("KB_OpenLootBox", function()
             if self:IsHovered() then
                 draw.RoundedBox(0, 0, 0, w, h, Color(255, 255, 255, 2))
             end
+
+            if self.PendingPut then
+                local rarityColor = kb.GetItemRarityColor(self.PendingPut)
+                
+                surface.SetDrawColor(rarityColor.r, rarityColor.g, rarityColor.b, 50)
+                surface.SetMaterial(gradient_down)
+                surface.DrawTexturedRect(0, 0, w, h)
+
+                local wep = weapons.GetStored(self.PendingPut)
+                if wep then
+                    local sx, sy = self:LocalToScreen(0, -15)
+                    KB_DrawWeaponSelection(wep, sx, sy, w, h, 255)
+                end
+                
+                local printName = (wep and wep.PrintName) and wep.PrintName or language.GetPhrase(self.PendingPut)
+                if printName == self.PendingPut then printName = self.PendingPut end
+                
+                draw.SimpleText(printName, "DermaDefault", w / 2, h - 6, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_BOTTOM)
+                
+                surface.SetDrawColor(rarityColor.r, rarityColor.g, rarityColor.b, 50)
+                surface.DrawRect(0, h - 3, w, 3)
+            end
+        end
+
+        local function SetupReceiver()
+            slotPanel:Receiver("Weapon_Item", function(self, panels, isDropped, drop_index, x, y)
+                if isDropped then
+                    local pnl = panels[1]
+                    if not IsValid(pnl) or not pnl.WepClass then return end
+
+                    net.Start("KB_PutItem")
+                        net.WriteEntity(box_ent)
+                        net.WriteUInt(index, 8) 
+                        net.WriteString(pnl.WepClass)
+                    net.SendToServer()
+                    
+                    pnl:SetVisible(false)
+
+                    self.PendingPut = pnl.WepClass
+                end
+            end)
+        end
+
+        if item.claimed then
+            SetupReceiver()
         end
 
         if not item.claimed then
@@ -560,6 +665,9 @@ net.Receive("KB_OpenLootBox", function()
 
                 if not LocalPlayer():HasWeapon(item.class) then
                     btn:Remove()
+
+                    item.claimed = true 
+                    SetupReceiver()
                 
                     remainingItems = remainingItems - 1
 

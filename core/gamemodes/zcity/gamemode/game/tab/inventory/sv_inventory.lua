@@ -1,5 +1,6 @@
 util.AddNetworkString("KB_ClaimLoot")
 util.AddNetworkString("KB_DropWeapon_Action")
+util.AddNetworkString("KB_PutItem")
 
 net.Receive("KB_ClaimLoot", function(len, ply)
     local box_ent = net.ReadEntity()
@@ -52,6 +53,36 @@ net.Receive("KB_ClaimLoot", function(len, ply)
         
         if not has_items_left then
             box_ent:Remove()
+        end
+    end
+end)
+
+net.Receive("KB_PutItem", function(len, ply)
+    local box_ent = net.ReadEntity()
+    local item_index = net.ReadUInt(8)
+    local wep_class = net.ReadString()
+
+    if not IsValid(ply) or not ply:IsPlayer() then return end
+    if not IsValid(box_ent) or not box_ent.Inventory then return end
+    
+    if ply:GetPos():DistToSqr(box_ent:GetPos()) > 40000 then return end
+
+    if box_ent.Inventory[item_index] then
+        local item = box_ent.Inventory[item_index]
+        
+        if item.claimed and ply:HasWeapon(wep_class) then
+            ply:StripWeapon(wep_class)
+            
+            box_ent.Inventory[item_index] = {
+                class = wep_class,
+                claimed = false,
+                ammo_taken = false
+            }
+            
+            net.Start("KB_OpenLootBox")
+                net.WriteEntity(box_ent)
+                net.WriteTable(box_ent.Inventory)
+            net.Send(ply)
         end
     end
 end)
