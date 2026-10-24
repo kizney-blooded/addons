@@ -1,17 +1,38 @@
 hook.Add("PlayerInitialSpawn","GoToSpectate",function(ply,bool)
     if IsValid(ply) then
+
+        ply.PreferredSpecMode = OBS_MODE_ROAMING
+
         timer.Simple(0.1,function()
             ply:KillSilent()
-            ply:Spectate(OBS_MODE_ROAMING)
+            ply:Spectate(ply.PreferredSpecMode)
         end)
     end
 end)
 
 hook.Add("PlayerDeath","Specatate",function(ply,inf,att)
     if IsValid(ply) then
+        ply.PreferredSpecMode = ply.PreferredSpecMode or OBS_MODE_ROAMING
+        
         timer.Simple(0,function()
-            ply:Spectate(OBS_MODE_ROAMING)
+            if IsValid(ply) then
+                ply:Spectate(ply.PreferredSpecMode)
+            end
         end)
+    end
+end)
+
+hook.Add("PlayerButtonDown", "ToggleSpecModeOnR", function(ply, button)
+    if not ply:Alive() and button == KEY_R then
+        ply.PreferredSpecMode = ply.PreferredSpecMode or OBS_MODE_ROAMING
+        
+        if ply.PreferredSpecMode == OBS_MODE_ROAMING then
+            ply.PreferredSpecMode = OBS_MODE_CHASE
+        else
+            ply.PreferredSpecMode = OBS_MODE_ROAMING
+        end
+        
+        ply:Spectate(ply.PreferredSpecMode)
     end
 end)
 

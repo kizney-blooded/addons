@@ -46,3 +46,25 @@ hook.Add("HUDPaint", "DrawSpecWH", function()
         end
     end
 end)
+
+hook.Add("HUDPaint", "DrawSpectatorTargetInfo", function()
+    local ply = LocalPlayer()
+    
+    if not IsValid(ply) or ply:Alive() then return end
+    
+    if ply:GetObserverMode() == OBS_MODE_CHASE then
+        
+        local target = ply:GetObserverTarget()
+        
+        if IsValid(target) and target:IsPlayer() then
+            local nameText = "Вы следите за - " .. target:Nick()
+            local hpText = "Здоровье - " .. target:Health()
+            
+            local x = ScrW() / 2
+            local y = 50 
+            
+            draw.SimpleText(nameText, "ChatFont", x, y, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
+            draw.SimpleText(hpText, "ChatFont", x, y + 25, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
+        end
+    end
+end)
