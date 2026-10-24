@@ -1,8 +1,10 @@
 if IsValid(main_inventory) then main_inventory:Remove() end
 if IsValid(lootbox_frame) then lootbox_frame:Remove() end
+if IsValid(playerinventory_frame) then playerinventory_frame:Remove() end
 
 main_inventory = nil
 lootbox_frame = nil
+playerinventory_frame = nil
 
 local blur = Material("pp/blurscreen")
 local gradient_down = Material("gui/gradient_up")
@@ -17,6 +19,32 @@ local weapon_blacklist = {
 local color_white_for_hui = Color(255,255,255,5)
 
 inventory_slot_memory = inventory_slot_memory or {}
+
+local function SyncInventorySlotsToServer()
+    net.Start("KB_SyncInventorySlots")
+    net.WriteTable(inventory_slot_memory)
+    net.SendToServer()
+end
+
+net.Receive("KB_SyncInventorySlots", function()
+    local new_memory = net.ReadTable()
+    
+    if IsValid(main_inventory) and IsValid(main_inventory.invPanel) then
+        for slot_idx, class in pairs(new_memory) do
+            if not weapon_blacklist[class] and not LocalPlayer():HasWeapon(class) then
+                local dummy = vgui.Create("Panel", main_inventory.invPanel) -- гений
+                dummy.PendingClaim = class
+                dummy.TargetSlotIndex = slot_idx
+            end
+        end
+    end
+    
+    inventory_slot_memory = new_memory
+    
+    if IsValid(main_inventory) and IsValid(main_inventory.invPanel) then
+        main_inventory.invPanel:Refresh()
+    end
+end)
 
 function Frame_Inventory()
     if IsValid(main_inventory) then return end
@@ -236,6 +264,21 @@ function Frame_Inventory()
     invPanel:SetPos((ScrW() - invW) / 2, ScrH() - invH)
     invPanel.Paint = function() end 
 
+    invPanel.Think = function(self)
+        local weps = LocalPlayer():GetWeapons()
+        local count = 0
+        for _, w in ipairs(weps) do
+            if IsValid(w) and not weapon_blacklist[w:GetClass()] then
+                count = count + 1
+            end
+        end
+        
+        if self.LastWepCount ~= count then
+            self.LastWepCount = count
+            self:Refresh()
+        end
+    end
+
     invPanel.Refresh = function(self)
         local pending_claims = {}
         local targeted_claims = {}
@@ -400,6 +443,8 @@ function Frame_Inventory()
 
                         inventory_slot_memory[toIndex] = inventory_slot_memory[fromIndex]
                         inventory_slot_memory[fromIndex] = targetClass
+
+                        SyncInventorySlotsToServer()
                         
                         self_pnl.PendingClaim = draggedClass
                         
@@ -470,6 +515,8 @@ function Frame_Inventory()
                 btn.DoClick = function() end
             end
         end
+
+        SyncInventorySlotsToServer()
     end
 
     invPanel:Refresh()
@@ -521,6 +568,14 @@ function Frame_Inventory()
                         return 
                     end
                 end
+
+                if IsValid(playerinventory_frame) and not playerinventory_frame.isClosing then
+                    local px, py = playerinventory_frame:LocalToScreen(0, 0)
+                    local pw, ph = playerinventory_frame:GetSize()
+                    if mx >= px and mx <= (px + pw) and my >= py and my <= (py + ph) then
+                        return 
+                    end
+                end
                 
                 local _, put_snd = kb.GetSoundClaimOrPut(pnl.WepClass)
                 surface.PlaySound(put_snd)
@@ -535,11 +590,20 @@ function Frame_Inventory()
                     
                     if IsValid(lootbox_frame) then
                         lootbox_frame.RemainingItems = (lootbox_frame.RemainingItems or 1) - 1
-                        if lootbox_frame.RemainingItems <= 0 and not box_ent.IsStorage then
+                        if lootbox_frame.RemainingItems <= 0 and not pnl.BoxEnt.IsStorage then
                             timer.Simple(0.1, function() 
                                 if IsValid(lootbox_frame) then
                                     lootbox_frame:Close()
                                 end
+                            end)
+                        end
+                    end
+
+                    if IsValid(playerinventory_frame) then
+                        playerinventory_frame.RemainingItems = (playerinventory_frame.RemainingItems or 1) - 1
+                        if playerinventory_frame.RemainingItems <= 0 and not pnl.BoxEnt.IsStorage then
+                            timer.Simple(0.1, function() 
+                                if IsValid(playerinventory_frame) then playerinventory_frame:Close() end
                             end)
                         end
                     end
@@ -578,6 +642,9 @@ function Frame_Inventory()
         if key == KEY_W or key == KEY_A or key == KEY_S or key == KEY_D then
             if IsValid(lootbox_frame) then
                 lootbox_frame:Close()
+            end
+            if IsValid(playerinventory_frame) then
+                playerinventory_frame:Close()
             end
         end
     end
@@ -916,6 +983,338 @@ net.Receive("KB_OpenLootBox", function()
                             end
                         end)
                     end
+                end
+            end
+        end
+    end
+end)
+
+net.Receive("KB_OpenPlayerInventory", function()
+    local player_ent = net.ReadEntity()
+    local items = net.ReadTable()
+    
+    local btnSize = 75
+    local gap = 0
+    local paddingTop = 40
+    local paddingBottom = 10
+    local paddingSide = 40
+    
+    local maxCols = 8
+    local cols = 8
+    local rows = 1
+    
+    local contentWidth = (btnSize * cols) + (gap * (cols - 1))
+    local contentHeight = (btnSize * rows) + (gap * (rows - 1))
+    
+    local frameW = math.Clamp(contentWidth + paddingSide, 150, ScrW() - 40) 
+    local frameH = math.Clamp(paddingTop + contentHeight + paddingBottom, 150, ScrH() - 40)
+
+    Frame_Inventory()
+
+    local isUpdating = IsValid(playerinventory_frame)
+
+    if not isUpdating then
+        main_inventory:SetKeyboardInputEnabled(true)
+
+        playerinventory_frame = vgui.Create("DFrame", main_inventory)
+        playerinventory_frame:SetSize(frameW, frameH) 
+        playerinventory_frame:Center()
+        playerinventory_frame:SetTitle("") 
+        playerinventory_frame:ShowCloseButton(false)
+
+        playerinventory_frame.uiAlpha = 0
+        playerinventory_frame:SetAlpha(0)
+        playerinventory_frame.isClosing = false
+
+        playerinventory_frame.Close = function(self)
+            if self.isClosing then return end
+            self.isClosing = true
+            LocalPlayer():EmitSound("kb/ui/close_box.wav")
+
+            if IsValid(main_inventory) then
+                main_inventory.isClosing = true
+            end
+        end
+
+        playerinventory_frame.Think = function(self)
+            local targetAlpha = self.isClosing and 0 or 255
+            self.uiAlpha = Lerp(FrameTime() * 10, self.uiAlpha, targetAlpha)
+            self:SetAlpha(self.uiAlpha)
+
+            if self.isClosing and self.uiAlpha < 5 then
+                self:Remove()
+            end
+        end
+
+        playerinventory_frame.Paint = function(self, w, h)
+            local ownerName = IsValid(player_ent) and player_ent:GetNWString("FakePlayerName", "") or ""
+            local title = (ownerName != "") and (ownerName .. "'s Инвентарь") or "Инвентарь игрока"
+            draw.SimpleText(title, "ChatFont", w / 2, paddingTop / 2, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+        end
+
+        playerinventory_frame.Scroll = vgui.Create("DScrollPanel", playerinventory_frame)
+        playerinventory_frame.Scroll:SetSize(contentWidth, math.min(contentHeight, frameH - paddingTop - paddingBottom))
+        playerinventory_frame.Scroll:SetPos((frameW - contentWidth) / 2, paddingTop) 
+    else
+        playerinventory_frame.isClosing = false
+        playerinventory_frame.Scroll:Clear()
+        
+        playerinventory_frame:SetSize(frameW, frameH)
+        playerinventory_frame:Center()
+        playerinventory_frame.Scroll:SetSize(contentWidth, math.min(contentHeight, frameH - paddingTop - paddingBottom))
+        playerinventory_frame.Scroll:SetPos((frameW - contentWidth) / 2, paddingTop)
+    end
+
+    local remainingItems = 0
+    for _, item in pairs(items) do
+        if not item.claimed then
+            remainingItems = remainingItems + 1
+        end
+    end
+    playerinventory_frame.RemainingItems = remainingItems
+
+    for index = 1, cols do
+        local item = items[index]
+        
+        local slotPanel = vgui.Create("DPanel", playerinventory_frame.Scroll)
+        slotPanel:SetSize(btnSize, btnSize)
+        slotPanel.SlotIndex = index
+
+        slotPanel.RealSetPos = slotPanel.SetPos
+        
+        local centerX = (contentWidth / 2) - (btnSize / 2)
+        local centerY = (contentHeight / 2) - (btnSize / 2)
+        
+        slotPanel.CurrentX = centerX
+        slotPanel.CurrentY = centerY
+        slotPanel:RealSetPos(centerX, centerY)
+        
+        slotPanel.SetPos = function(self, x, y)
+            self.TargetX = x
+            self.TargetY = y
+
+            if isUpdating then
+                self.CurrentX = x
+                self.CurrentY = y
+                self:RealSetPos(x, y)
+            end
+        end
+
+        slotPanel.Think = function(self)
+            local target_x = (IsValid(playerinventory_frame) and playerinventory_frame.isClosing) and centerX or self.TargetX
+            local target_y = (IsValid(playerinventory_frame) and playerinventory_frame.isClosing) and centerY or self.TargetY
+            
+            if target_x and target_y then
+                self.CurrentX = Lerp(FrameTime() * 10, self.CurrentX, target_x)
+                self.CurrentY = Lerp(FrameTime() * 10, self.CurrentY, target_y)
+                
+                if math.abs(target_x - self.CurrentX) < 0.5 then
+                    self.CurrentX = target_x
+                end
+                if math.abs(target_y - self.CurrentY) < 0.5 then
+                    self.CurrentY = target_y
+                end
+                
+                self:RealSetPos(self.CurrentX, self.CurrentY)
+            end
+        end
+
+        local col = (index - 1) % maxCols
+        local row = math.floor((index - 1) / maxCols)
+        local tgtX = col * (btnSize + gap)
+        local tgtY = row * (btnSize + gap)
+        
+        slotPanel:SetPos(tgtX, tgtY)
+
+        slotPanel.Paint = function(self, w, h)
+            draw.RoundedBox(0, 0, 0, w, h, Color(39, 39, 39))
+
+            surface.SetDrawColor(73, 73, 73)
+            surface.DrawLine(0, 0, w, 0)
+            surface.DrawLine(0, 0, 0, h)
+
+            surface.SetDrawColor(15, 15, 15, 255)
+            surface.DrawLine(0, h - 1, w, h - 1) 
+            surface.DrawLine(w - 1, 0, w - 1, h)
+
+            if self:IsHovered() then
+                draw.RoundedBox(0, 0, 0, w, h, Color(255, 255, 255, 2))
+            end
+
+            if self.PendingPut then
+                local rarityColor = kb.GetItemRarityColor(self.PendingPut)
+                
+                surface.SetDrawColor(rarityColor.r, rarityColor.g, rarityColor.b, 50)
+                surface.SetMaterial(gradient_down)
+                surface.DrawTexturedRect(0, 0, w, h)
+
+                local wep = weapons.GetStored(self.PendingPut)
+                if wep then
+                    local sx, sy = self:LocalToScreen(0, -15)
+                    KB_DrawWeaponSelection(wep, sx, sy, w, h, 255)
+                end
+                
+                local printName = (wep and wep.PrintName) and wep.PrintName or language.GetPhrase(self.PendingPut)
+                if printName == self.PendingPut then printName = self.PendingPut end
+                
+                draw.SimpleText(printName, "DermaDefault", w / 2, h - 6, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_BOTTOM)
+                
+                surface.SetDrawColor(rarityColor.r, rarityColor.g, rarityColor.b, 50)
+                surface.DrawRect(0, h - 3, w, 3)
+            end
+        end
+
+        local function SetupReceiver()
+            slotPanel:Receiver("Weapon_Item", function(self_pnl, panels, isDropped, drop_index, x, y)
+                if isDropped then
+                    local pnl = panels[1]
+                    if not IsValid(pnl) or not pnl.WepClass then return end
+
+                    if pnl.IsLootboxItem then
+                        local old_parent = pnl:GetParent()
+                        if old_parent == self_pnl then return end
+
+                        local existing_btn = nil
+                        for _, child in ipairs(self_pnl:GetChildren()) do
+                            if child:GetName() == "DButton" and child ~= pnl then
+                                existing_btn = child
+                                break
+                            end
+                        end
+
+                        net.Start("KB_SwapLootboxItem")
+                            net.WriteEntity(player_ent)
+                            net.WriteUInt(pnl.SlotIndex, 8)
+                            net.WriteUInt(self_pnl.SlotIndex, 8)
+                        net.SendToServer()
+                        
+                        local _, put_snd = kb.GetSoundClaimOrPut(pnl.WepClass)
+                        surface.PlaySound(put_snd)
+
+                        local temp_index = pnl.SlotIndex
+                        pnl.SlotIndex = self_pnl.SlotIndex
+
+                        if existing_btn then
+                            existing_btn.SlotIndex = temp_index
+                            existing_btn:SetParent(old_parent)
+                            existing_btn:SetPos(0, 0)
+                        end
+                        
+                        pnl:SetParent(self_pnl)
+                        pnl:SetPos(0, 0)
+
+                        local temp_item = items[temp_index]
+                        items[temp_index] = items[pnl.SlotIndex]
+                        items[pnl.SlotIndex] = temp_item
+
+                        return
+                    end
+
+                    local is_empty = true
+                    for _, child in ipairs(self_pnl:GetChildren()) do
+                        if child:GetName() == "DButton" and child:IsVisible() then
+                            is_empty = false
+                            break
+                        end
+                    end
+
+                    if not is_empty or self_pnl.PendingPut then return end
+
+                    net.Start("KB_PutItem")
+                        net.WriteEntity(player_ent)
+                        net.WriteUInt(self_pnl.SlotIndex, 8) 
+                        net.WriteString(pnl.WepClass)
+                    net.SendToServer()
+                    
+                    local _, put_snd = kb.GetSoundClaimOrPut(pnl.WepClass)
+                    surface.PlaySound(put_snd)
+                    
+                    pnl:SetVisible(false)
+                    self_pnl.PendingPut = pnl.WepClass
+                end
+            end)
+        end
+
+        SetupReceiver()
+
+        if item and not item.claimed and not weapon_blacklist[item.class] then
+            local btn = vgui.Create("DButton", slotPanel)
+            btn:SetSize(btnSize, btnSize)
+            btn.SlotIndex = index
+            btn.BoxEnt = player_ent
+
+            local wep = weapons.GetStored(item.class)
+            local printName = (wep and wep.PrintName) and wep.PrintName or language.GetPhrase(item.class)
+            
+            if printName == item.class then
+                printName = item.class 
+            end
+
+            local rarityColor = kb.GetItemRarityColor(item.class)
+            
+            btn:SetText("")
+
+            btn.WepClass = item.class
+            btn.IsLootboxItem = true
+            btn:Droppable("Weapon_Item")
+
+            btn.OnStartDragging = function(self)
+                self:SetPaintedManually(true)
+                local claim_snd = kb.GetSoundClaimOrPut(self.WepClass)
+                surface.PlaySound(claim_snd)
+            end
+
+            btn.OnStopDragging = function(self)
+                self:SetPaintedManually(false)
+            end
+
+            btn.Paint = function(self, w, h)
+                surface.SetDrawColor(rarityColor.r, rarityColor.g, rarityColor.b, 50)
+                surface.SetMaterial(gradient_down)
+                surface.DrawTexturedRect(0, 0, w, h)
+
+                if wep then
+                    local sx, sy = self:LocalToScreen(0, -15)
+                    KB_DrawWeaponSelection(wep, sx, sy, w, h, 255)
+                end
+                
+                draw.SimpleText(printName, "DermaDefault", w / 2, h - 6, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_BOTTOM)
+                
+                surface.SetDrawColor(rarityColor.r, rarityColor.g, rarityColor.b, 50)
+                surface.DrawRect(0, h - 3, w, 3)
+
+                if self:IsHovered() then
+                    draw.RoundedBox(0, 0, 0, w, h, Color(255, 255, 255, 2))
+                end
+            end
+            
+            btn.DoClick = function()
+                local claim_snd = kb.GetSoundClaimOrPut(btn.WepClass)
+                surface.PlaySound(claim_snd)
+
+                net.Start("KB_ClaimLoot")
+                    net.WriteEntity(player_ent)
+                    net.WriteUInt(btn.SlotIndex, 8) 
+                net.SendToServer()
+
+                if not LocalPlayer():HasWeapon(item.class) then
+                    if IsValid(main_inventory) and IsValid(main_inventory.invPanel) then
+                        local dummy = vgui.Create("Panel", main_inventory.invPanel) 
+                        dummy.PendingClaim = item.class
+                        
+                        if btn.TargetSlotIndex then
+                            dummy.TargetSlotIndex = btn.TargetSlotIndex
+                        end
+                        
+                        main_inventory.invPanel:Refresh()
+                    end
+                end
+
+                if not LocalPlayer():HasWeapon(item.class) then
+                    btn:Remove()
+                    item.claimed = true 
+                    
+                    playerinventory_frame.RemainingItems = playerinventory_frame.RemainingItems - 1
                 end
             end
         end

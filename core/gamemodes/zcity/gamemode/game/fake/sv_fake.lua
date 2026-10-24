@@ -53,7 +53,11 @@ function playermeta:create_fake(vel)
         self.FakeRagdoll = rag
         self:SetNWEntity("FakeRagdoll", rag)
 
+        rag:SetNWString("FakePlayerName", self:Nick())
+
         rag.FakePlayer = self
+
+        print(rag.FakePlayer)
 
         local bullseye = ents.Create("npc_bullseye")
         local bodyphy = rag:GetPhysicsObjectNum(10)
@@ -191,6 +195,20 @@ hook.Add("PlayerDeath","DeathFake",function(ply,inf,att)
     if IsValid(ply.FakeBullseye) then
         ply.FakeBullseye:Remove()
         ply.FakeBullseye = nil
+    end
+
+    if IsValid(ply.FakeRagdoll) then
+        local inv = {}
+        for _, wep in ipairs(ply:GetWeapons()) do
+            table.insert(inv, {
+                class = wep:GetClass(), 
+                claimed = false, 
+                clip1 = wep:Clip1(), 
+                clip2 = wep:Clip2()
+            })
+        end
+        ply.FakeRagdoll.Inventory = inv
+        ply.FakeRagdoll.FakePlayer = nil
     end
 
     if IsValid(ply.FakeRagdoll) then
