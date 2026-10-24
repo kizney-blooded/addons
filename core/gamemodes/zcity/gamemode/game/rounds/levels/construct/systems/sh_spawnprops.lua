@@ -582,6 +582,7 @@ Props_4[329] = 			"models/unconid/pc_models/monitors/lcd_lg_4x3.mdl"
 
 Ents_1 = {}
 Ents_1[1] = { class = "con_lootbox", model = "models/sarma_crates/static_crate_40.mdl", name = "Хранилище" }
+Ents_1[2] = { class = "ent_jack_sleepingbag", model = "models/jmod/props/sleeping_bag_rolled.mdl", name = "Спальник" }
 
 if CLIENT then
     local CfgVars = {}

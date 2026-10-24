@@ -370,6 +370,14 @@ if SERVER then
     hook.Add("PlayerSelectSpawn", "KB_PlayerSelectSpawn", function(ply, transition)
         if transition then return end
 
+
+        -- проверка на спальник
+        if IsValid(ply.JModSpawnPointEntity) and ply.JModSpawnPointEntity:GetClass() == "ent_jack_sleepingbag" then
+            if ply.JModSpawnPointEntity.State == 1 and ply.JModSpawnPointEntity.EZowner == ply then
+                return ply.JModSpawnPointEntity
+            end
+        end
+
         local pool = {}
 
         if kb and kb.RD and kb.RD.current_round == "hmcd" then

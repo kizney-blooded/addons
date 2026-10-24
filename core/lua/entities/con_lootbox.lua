@@ -11,6 +11,8 @@ ENT.IsStorage = true
 ENT.BoxModel = "models/sarma_crates/static_crate_40.mdl"
 ENT.BoxSkin = 0
 
+
+if not SERVER then return end
 function ENT:Initialize()
     self:SetModel(self.BoxModel)
     self:SetSkin(self.BoxSkin)
@@ -18,6 +20,7 @@ function ENT:Initialize()
     self:PhysicsInit(SOLID_VPHYSICS)
     self:SetMoveType(MOVETYPE_VPHYSICS)
     self:SetSolid(SOLID_VPHYSICS)
+    self:SetUseType(SIMPLE_USE)
 
     self.Inventory = {}
     
