@@ -14,8 +14,11 @@ local weapon_blacklist = {
     ["weapon_physgun"] = true,
 }
 
+local color_white_for_hui = Color(255,255,255,5)
+
 function Frame_Inventory()
     if IsValid(main_inventory) then return end
+    
 
     main_inventory = vgui.Create("DPanel")
     main_inventory:SetSize(ScrW(), ScrH())
@@ -361,7 +364,9 @@ function Frame_Inventory()
     end)
 
     main_inventory.Paint = function(self, w, h)
-        draw.RoundedBox(0, 0, 0, w, h, Color(0, 0, 0, 180))
+        draw.RoundedBox(0, 0, 0, w, h, Color(0, 0, 0, 220))
+        draw.SimpleText("KIZNEY BOX", "KB.1", w / 2 , h / 2, color_white_for_hui, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+
     end
 
     main_inventory.Think = function(self)

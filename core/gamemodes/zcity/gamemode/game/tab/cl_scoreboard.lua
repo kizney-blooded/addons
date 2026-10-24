@@ -11,6 +11,8 @@ local holdTime = 0.25
 local isHolding = false
 local isOtherWindowOpen = false
 
+local color_white_for_hui = Color(255,255,255,5)
+
 local function CreateScoreboard()
     if IsValid(CustomScoreboard) then return end
 
@@ -37,6 +39,8 @@ local function CreateScoreboard()
         draw.RoundedBox(0, 0, 0, w, h, Color(30, 30, 30, 240))
         
         draw.SimpleText("Кол-во игроков: " .. player.GetCount(), "ChatFont", 10, 20, color_white, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+
+        draw.SimpleText("KIZNEY BOX", "KB.1", w / 2 , h / 2, color_white_for_hui, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 
         draw.SimpleText(
             "Тикрейт сервера - " .. tickrate, 
