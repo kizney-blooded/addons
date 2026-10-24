@@ -62,7 +62,8 @@ hook.Add("PlayerDeathThink", "CustomRespawn_Think", function(ply)
         end
 
         if ply.NextRespawnTime and CurTime() >= ply.NextRespawnTime then
-            spawn_construct_player(ply)
+            --spawn_construct_player(ply)
+            ply:Spawn()
             ply.NextRespawnTime = nil
             return true
         end

@@ -1,7 +1,7 @@
 constract.RoundTime = 10800
 
 function spawn_construct_player(ply)
-    ply:Spawn()
+    --ply:Spawn()
 
     --ply:SetTeam(1)
 
@@ -15,6 +15,7 @@ function constract.StartRound()
     kb.RD.disable_respawn_time = CurTime() + 8900
     kb.RD.redzona_started = false
     for _ , ply in player.Iterator() do
+        ply:Spawn()
         spawn_construct_player(ply)
     end
 

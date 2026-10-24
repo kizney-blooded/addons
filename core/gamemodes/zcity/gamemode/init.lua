@@ -14,6 +14,10 @@ function GM:PlayerSpawn(ply,bool)
 
         ply:StripWeapons()
 
+        if kb.RD.current_round == "constract" then
+            spawn_construct_player(ply)
+        end
+
         ply:RemoveAllAmmo()
 
         ply:AddEFlags(EFL_NO_DAMAGE_FORCES)
