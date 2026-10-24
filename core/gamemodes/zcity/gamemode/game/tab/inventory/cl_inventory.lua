@@ -535,9 +535,11 @@ function Frame_Inventory()
                     
                     if IsValid(lootbox_frame) then
                         lootbox_frame.RemainingItems = (lootbox_frame.RemainingItems or 1) - 1
-                        if lootbox_frame.RemainingItems <= 0 then
-                            timer.Simple(0.1, function()
-                                if IsValid(lootbox_frame) then lootbox_frame:Close() end
+                        if lootbox_frame.RemainingItems <= 0 and not box_ent.IsStorage then
+                            timer.Simple(0.1, function() 
+                                if IsValid(lootbox_frame) then
+                                    lootbox_frame:Close()
+                                end
                             end)
                         end
                     end
@@ -593,9 +595,16 @@ net.Receive("KB_OpenLootBox", function()
     local paddingBottom = 10
     local paddingSide = 40
     
-    local contentWidth = (btnSize * count) + (gap * (count - 1))
+    local maxCols = 8
+    local cols = math.min(count, maxCols)
+    local rows = math.ceil(count / maxCols)
+    if rows == 0 then rows = 1 end
+    
+    local contentWidth = (btnSize * cols) + (gap * (cols - 1))
+    local contentHeight = (btnSize * rows) + (gap * (rows - 1))
+    
     local frameW = math.Clamp(contentWidth + paddingSide, 150, ScrW() - 40) 
-    local frameH = paddingTop + btnSize + paddingBottom
+    local frameH = math.Clamp(paddingTop + contentHeight + paddingBottom, 150, ScrH() - 40)
 
     Frame_Inventory()
 
@@ -639,18 +648,16 @@ net.Receive("KB_OpenLootBox", function()
             draw.SimpleText(title, "ChatFont", w / 2, paddingTop / 2, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
         end
 
-        lootbox_frame.Scroll = vgui.Create("DHorizontalScroller", lootbox_frame)
-        lootbox_frame.Scroll:SetSize(contentWidth, btnSize)
+        lootbox_frame.Scroll = vgui.Create("DScrollPanel", lootbox_frame)
+        lootbox_frame.Scroll:SetSize(contentWidth, math.min(contentHeight, frameH - paddingTop - paddingBottom))
         lootbox_frame.Scroll:SetPos((frameW - contentWidth) / 2, paddingTop) 
-        lootbox_frame.Scroll:SetOverlap(-gap) 
     else
         lootbox_frame.isClosing = false
-        for _, pnl in pairs(lootbox_frame.Scroll.Panels or {}) do
-            if IsValid(pnl) then pnl:Remove() end
-        end
+        lootbox_frame.Scroll:Clear()
+        
         lootbox_frame:SetSize(frameW, frameH)
         lootbox_frame:Center()
-        lootbox_frame.Scroll:SetSize(contentWidth, btnSize)
+        lootbox_frame.Scroll:SetSize(contentWidth, math.min(contentHeight, frameH - paddingTop - paddingBottom))
         lootbox_frame.Scroll:SetPos((frameW - contentWidth) / 2, paddingTop)
     end
 
@@ -670,8 +677,11 @@ net.Receive("KB_OpenLootBox", function()
         slotPanel.RealSetPos = slotPanel.SetPos
         
         local centerX = (contentWidth / 2) - (btnSize / 2)
+        local centerY = (contentHeight / 2) - (btnSize / 2)
+        
         slotPanel.CurrentX = centerX
-        slotPanel:RealSetPos(centerX, 0)
+        slotPanel.CurrentY = centerY
+        slotPanel:RealSetPos(centerX, centerY)
         
         slotPanel.SetPos = function(self, x, y)
             self.TargetX = x
@@ -679,24 +689,36 @@ net.Receive("KB_OpenLootBox", function()
 
             if isUpdating then
                 self.CurrentX = x
+                self.CurrentY = y
                 self:RealSetPos(x, y)
             end
-            
         end
 
         slotPanel.Think = function(self)
             local target_x = (IsValid(lootbox_frame) and lootbox_frame.isClosing) and centerX or self.TargetX
+            local target_y = (IsValid(lootbox_frame) and lootbox_frame.isClosing) and centerY or self.TargetY
             
-            if target_x and self.TargetY then
+            if target_x and target_y then
                 self.CurrentX = Lerp(FrameTime() * 10, self.CurrentX, target_x)
+                self.CurrentY = Lerp(FrameTime() * 10, self.CurrentY, target_y)
                 
                 if math.abs(target_x - self.CurrentX) < 0.5 then
                     self.CurrentX = target_x
                 end
+                if math.abs(target_y - self.CurrentY) < 0.5 then
+                    self.CurrentY = target_y
+                end
                 
-                self:RealSetPos(self.CurrentX, self.TargetY)
+                self:RealSetPos(self.CurrentX, self.CurrentY)
             end
         end
+
+        local col = (index - 1) % maxCols
+        local row = math.floor((index - 1) / maxCols)
+        local tgtX = col * (btnSize + gap)
+        local tgtY = row * (btnSize + gap)
+        
+        slotPanel:SetPos(tgtX, tgtY)
 
         slotPanel.Paint = function(self, w, h)
             draw.RoundedBox(0, 0, 0, w, h, Color(39, 39, 39))
@@ -884,10 +906,7 @@ net.Receive("KB_OpenLootBox", function()
 
                 if not LocalPlayer():HasWeapon(item.class) then
                     btn:Remove()
-
                     item.claimed = true 
-                    --SetupReceiver()
-                
                     lootbox_frame.RemainingItems = lootbox_frame.RemainingItems - 1
 
                     if lootbox_frame.RemainingItems <= 0 then
@@ -900,7 +919,5 @@ net.Receive("KB_OpenLootBox", function()
                 end
             end
         end
-
-        lootbox_frame.Scroll:AddPanel(slotPanel)
     end
 end)

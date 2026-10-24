@@ -56,7 +56,7 @@ net.Receive("KB_ClaimLoot", function(len, ply)
             end
         end
         
-        if not has_items_left then
+        if not has_items_left and not box_ent.IsStorage then
             box_ent:Remove()
         end
     end
