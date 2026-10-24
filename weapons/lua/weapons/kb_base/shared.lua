@@ -12,6 +12,10 @@ SWEP.DrawWeaponInfoBox = false
 
 SWEP.HoldType = "rpg"
 
+SWEP.Secondary.ClipSize = -1
+SWEP.Secondary.DefaultClip = -1
+SWEP.Secondary.Ammo = "none"
+
 --[[SWEP.WorldModel = "models/weapons/arccw_go/v_rif_ak47.mdl"
 
 SWEP.Primary.ClipSize = 30

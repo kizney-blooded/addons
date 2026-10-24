@@ -10,6 +10,10 @@ SWEP.HoldType = "slam"
 
 SWEP.WorldModel = "models/foodnhouseholditems/chipslays5.mdl"
 
+SWEP.Secondary.ClipSize = -1
+SWEP.Secondary.DefaultClip = -1
+SWEP.Secondary.Ammo = "none"
+
 --[[SWEP.IconPos = { Pos = Vector(8.16, 0.00, -3.00), Ang = Angle(90.00, 78.37, -97.96), FOV = 130.00 }
 
 SWEP.WMPos = Vector(5, 2, 0) 
