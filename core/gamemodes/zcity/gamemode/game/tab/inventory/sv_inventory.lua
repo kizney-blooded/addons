@@ -1,22 +1,21 @@
+util.AddNetworkString("KB_SyncInventorySlots")
+
+util.AddNetworkString("KB_OpenPlayerInventory")
+util.AddNetworkString("KB_OpenLootBox")
+
 util.AddNetworkString("KB_ClaimLoot")
 util.AddNetworkString("KB_PutItem")
 
 util.AddNetworkString("KB_DropWeapon_Action")
 util.AddNetworkString("KB_DropLootboxItem")
 
-
 util.AddNetworkString("KB_SwapLootboxItem")
 
-
-util.AddNetworkString("KB_SyncInventorySlots")
 
 net.Receive("KB_SyncInventorySlots", function(len, ply)
     if not IsValid(ply) then return end
     ply.InventorySlotMemory = net.ReadTable()
 end)
-
-
-util.AddNetworkString("KB_OpenPlayerInventory")
 
 local weapon_blacklist = {
     ["wep_jack_gmod_hands"] = true,
@@ -25,43 +24,30 @@ local weapon_blacklist = {
     ["weapon_physgun"] = true,
 }
 
-hook.Add("PlayerButtonDown","Check_inventory_players123",function(ply,btn)
+hook.Add("PlayerButtonDown", "Check_inventory_players123", function(ply, btn)
     if btn == KEY_E then
         local tr = ply:GetEyeTrace()
         local ent = tr.Entity
         
         if IsValid(ent) and ent:GetClass() == "prop_ragdoll" and ply:GetPos():DistToSqr(ent:GetPos()) < 10000 then
-            local inv = {}
-            
-            if IsValid(ent.FakePlayer) then
-                local slot_memory = ent.FakePlayer.InventorySlotMemory or {}
-                local weps = ent.FakePlayer:GetWeapons()
-                local remaining_weps = {}
+            if not ent.Inventory then
+                local inv = {}
+                
+                if IsValid(ent.FakePlayer) then
+                    local slot_memory = ent.FakePlayer.InventorySlotMemory or {}
+                    local weps = ent.FakePlayer:GetWeapons()
+                    local remaining_weps = {}
 
-                for _, wep in ipairs(weps) do
-                    if not weapon_blacklist[wep:GetClass()] then
-                        remaining_weps[wep:GetClass()] = wep
+                    for _, wep in ipairs(weps) do
+                        if not weapon_blacklist[wep:GetClass()] then
+                            remaining_weps[wep:GetClass()] = wep
+                        end
                     end
-                end
 
-                for i = 1, 8 do
-                    local cls = slot_memory[i]
-                    if cls and remaining_weps[cls] then
-                        local wep = remaining_weps[cls]
-                        inv[i] = {
-                            class = cls, 
-                            claimed = false, 
-                            ammo_taken = true,
-                            clip1 = wep:Clip1(), 
-                            clip2 = wep:Clip2()
-                        }
-                        remaining_weps[cls] = nil
-                    end
-                end
-
-                for cls, wep in pairs(remaining_weps) do
                     for i = 1, 8 do
-                        if not inv[i] then
+                        local cls = slot_memory[i]
+                        if cls and remaining_weps[cls] then
+                            local wep = remaining_weps[cls]
                             inv[i] = {
                                 class = cls, 
                                 claimed = false, 
@@ -69,20 +55,36 @@ hook.Add("PlayerButtonDown","Check_inventory_players123",function(ply,btn)
                                 clip1 = wep:Clip1(), 
                                 clip2 = wep:Clip2()
                             }
-                            break
+                            remaining_weps[cls] = nil
                         end
                     end
+
+                    for cls, wep in pairs(remaining_weps) do
+                        for i = 1, 8 do
+                            if not inv[i] then
+                                inv[i] = {
+                                    class = cls, 
+                                    claimed = false, 
+                                    ammo_taken = true,
+                                    clip1 = wep:Clip1(), 
+                                    clip2 = wep:Clip2()
+                                }
+                                break
+                            end
+                        end
+                    end
+                    
+                    ent.Inventory = inv
                 end
-                
-                ent.Inventory = inv
-            elseif ent.Inventory then
-                inv = ent.Inventory
             end
 
-            net.Start("KB_OpenPlayerInventory")
-            net.WriteEntity(ent)
-            net.WriteTable(inv)
-            net.Send(ply)
+            if ent.Inventory then
+                net.Start("KB_OpenPlayerInventory")
+                net.WriteEntity(ent)
+                net.WriteTable(ent.Inventory)
+                net.WriteBool(false)
+                net.Send(ply)
+            end
         end
     end
 end)
@@ -93,12 +95,10 @@ net.Receive("KB_ClaimLoot", function(len, ply)
 
     if not IsValid(ply) or not ply:IsPlayer() then return end
     if not IsValid(box_ent) then return end
-    
     if ply:GetPos():DistToSqr(box_ent:GetPos()) > 40000 then return end
 
     if box_ent.Inventory and box_ent.Inventory[item_index] then
         local item = box_ent.Inventory[item_index]
-        
         if item.claimed then return end
 
         local is_food = string.StartWith(item.class, "food_")
@@ -108,7 +108,6 @@ net.Receive("KB_ClaimLoot", function(len, ply)
                 local wep = ply:GetWeapon(item.class)
                 if IsValid(wep) then
                     local ammo_type = wep:GetPrimaryAmmoType()
-
                     if ammo_type ~= -1 then
                         local ammo_amount = wep:GetMaxClip1()
                         if ammo_amount <= 0 then ammo_amount = 30 end
@@ -162,6 +161,27 @@ net.Receive("KB_ClaimLoot", function(len, ply)
         
         if not has_items_left and not box_ent.IsStorage and box_ent:GetClass() ~= "prop_ragdoll" then
             box_ent:Remove()
+        else
+            local viewers = {}
+            for _, p in player.Iterator() do
+                if p:GetPos():DistToSqr(box_ent:GetPos()) <= 40000 then
+                    table.insert(viewers, p)
+                end
+            end
+
+            if box_ent:GetClass() == "prop_ragdoll" then
+                net.Start("KB_OpenPlayerInventory")
+                net.WriteEntity(box_ent)
+                net.WriteTable(box_ent.Inventory)
+                net.WriteBool(true)
+                net.Send(viewers)
+            else
+                net.Start("KB_OpenLootBox")
+                net.WriteEntity(box_ent)
+                net.WriteTable(box_ent.Inventory)
+                net.WriteBool(true)
+                net.Send(viewers)
+            end
         end
     end
 end)
@@ -175,11 +195,9 @@ net.Receive("KB_PutItem", function(len, ply)
     if not IsValid(box_ent) then return end
     
     box_ent.Inventory = box_ent.Inventory or {}
-    
     if ply:GetPos():DistToSqr(box_ent:GetPos()) > 40000 then return end
 
     local item = box_ent.Inventory[item_index]
-    
     if item and not item.claimed then return end
     
     if ply:HasWeapon(wep_class) then
@@ -218,16 +236,25 @@ net.Receive("KB_PutItem", function(len, ply)
             net.Send(target_ply)
         end
         
+        local viewers = {}
+        for _, p in player.Iterator() do
+            if p:GetPos():DistToSqr(box_ent:GetPos()) <= 40000 then
+                table.insert(viewers, p)
+            end
+        end
+
         if box_ent:GetClass() == "prop_ragdoll" then
             net.Start("KB_OpenPlayerInventory")
                 net.WriteEntity(box_ent)
                 net.WriteTable(box_ent.Inventory)
-            net.Send(ply)
+                net.WriteBool(true)
+            net.Send(viewers)
         else
             net.Start("KB_OpenLootBox")
                 net.WriteEntity(box_ent)
                 net.WriteTable(box_ent.Inventory)
-            net.Send(ply)
+                net.WriteBool(true)
+            net.Send(viewers)
         end
     end
 end)
@@ -239,15 +266,50 @@ net.Receive("KB_SwapLootboxItem", function(len, ply)
 
     if not IsValid(ply) or not ply:IsPlayer() then return end
     if not IsValid(box_ent) or not box_ent.Inventory then return end
-    
     if ply:GetPos():DistToSqr(box_ent:GetPos()) > 40000 then return end
 
     local item_from = box_ent.Inventory[from_index]
     local item_to = box_ent.Inventory[to_index]
 
-    if item_from and item_to then
+    if item_from or item_to then
         box_ent.Inventory[from_index] = item_to
         box_ent.Inventory[to_index] = item_from
+
+        if IsValid(box_ent.FakePlayer) then
+            local target_ply = box_ent.FakePlayer
+            target_ply.InventorySlotMemory = target_ply.InventorySlotMemory or {}
+            
+            local class_from = item_from and item_from.class or nil
+            local class_to = item_to and item_to.class or nil
+
+            target_ply.InventorySlotMemory[from_index] = class_to
+            target_ply.InventorySlotMemory[to_index] = class_from
+
+            net.Start("KB_SyncInventorySlots")
+            net.WriteTable(target_ply.InventorySlotMemory)
+            net.Send(target_ply)
+        end
+
+        local viewers = {}
+        for _, p in player.Iterator() do
+            if p:GetPos():DistToSqr(box_ent:GetPos()) <= 40000 then
+                table.insert(viewers, p)
+            end
+        end
+
+        if box_ent:GetClass() == "prop_ragdoll" then
+            net.Start("KB_OpenPlayerInventory")
+            net.WriteEntity(box_ent)
+            net.WriteTable(box_ent.Inventory)
+            net.WriteBool(true)
+            net.Send(viewers)
+        else
+            net.Start("KB_OpenLootBox")
+            net.WriteEntity(box_ent)
+            net.WriteTable(box_ent.Inventory)
+            net.WriteBool(true)
+            net.Send(viewers)
+        end
     end
 end)
 
@@ -255,11 +317,9 @@ local blacklist = {
     ["wep_jack_gmod_hands"] = true
 }
 
-
 local function DropWeapon(ply, wpn)
 	if not IsValid(wpn) then return end
 	if (blacklist[wpn:GetClass()] or wpn.AdminOnly) then return end
-
 	ply:DropWeapon(wpn)
 end
 
@@ -268,7 +328,6 @@ concommand.Add("-drop", function(ply) end)
 
 net.Receive("KB_DropWeapon_Action", function(len, ply)
     local wep_class = net.ReadString()
-    
     if not IsValid(ply) or not ply:IsPlayer() then return end
     
     local wep = ply:GetWeapon(wep_class)
@@ -283,13 +342,28 @@ net.Receive("KB_DropLootboxItem", function(len, ply)
 
     if not IsValid(ply) or not ply:IsPlayer() then return end
     if not IsValid(box_ent) or not box_ent.Inventory then return end
-    
     if ply:GetPos():DistToSqr(box_ent:GetPos()) > 40000 then return end
 
     if box_ent.Inventory[item_index] then
         local item = box_ent.Inventory[item_index]
-        
         if item.claimed then return end
+        
+        if IsValid(box_ent.FakePlayer) and box_ent.FakePlayer:HasWeapon(item.class) then
+            box_ent.FakePlayer:StripWeapon(item.class)
+            
+            if box_ent.FakePlayer.InventorySlotMemory then
+                for k, v in pairs(box_ent.FakePlayer.InventorySlotMemory) do
+                    if v == item.class then
+                        box_ent.FakePlayer.InventorySlotMemory[k] = nil
+                    end
+                end
+            end
+            
+            net.Start("KB_SyncInventorySlots")
+            net.WriteTable(box_ent.FakePlayer.InventorySlotMemory or {})
+            net.Send(box_ent.FakePlayer)
+        end
+
         item.claimed = true
         
         local wep = ents.Create(item.class)
@@ -319,6 +393,27 @@ net.Receive("KB_DropLootboxItem", function(len, ply)
         
         if not has_items_left and not box_ent.IsStorage and box_ent:GetClass() ~= "prop_ragdoll" then
             box_ent:Remove()
+        else
+            local viewers = {}
+            for _, p in player.Iterator() do
+                if p:GetPos():DistToSqr(box_ent:GetPos()) <= 40000 then
+                    table.insert(viewers, p)
+                end
+            end
+
+            if box_ent:GetClass() == "prop_ragdoll" then
+                net.Start("KB_OpenPlayerInventory")
+                net.WriteEntity(box_ent)
+                net.WriteTable(box_ent.Inventory)
+                net.WriteBool(true)
+                net.Send(viewers)
+            else
+                net.Start("KB_OpenLootBox")
+                net.WriteEntity(box_ent)
+                net.WriteTable(box_ent.Inventory)
+                net.WriteBool(true)
+                net.Send(viewers)
+            end
         end
     end
 end)

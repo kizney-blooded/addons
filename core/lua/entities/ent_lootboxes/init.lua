@@ -56,5 +56,6 @@ function ENT:Use(activator, caller)
     net.Start("KB_OpenLootBox")
         net.WriteEntity(self)
         net.WriteTable(self.Inventory)
+        net.WriteBool(false)
     net.Send(activator)
 end

@@ -32,7 +32,7 @@ net.Receive("KB_SyncInventorySlots", function()
     if IsValid(main_inventory) and IsValid(main_inventory.invPanel) then
         for slot_idx, class in pairs(new_memory) do
             if not weapon_blacklist[class] and not LocalPlayer():HasWeapon(class) then
-                local dummy = vgui.Create("Panel", main_inventory.invPanel) -- гений
+                local dummy = vgui.Create("Panel", main_inventory.invPanel)
                 dummy.PendingClaim = class
                 dummy.TargetSlotIndex = slot_idx
             end
@@ -49,7 +49,6 @@ end)
 function Frame_Inventory()
     if IsValid(main_inventory) then return end
     
-
     main_inventory = vgui.Create("DPanel")
     main_inventory:SetSize(ScrW(), ScrH())
     main_inventory:SetPos(0, 0)
@@ -69,7 +68,6 @@ function Frame_Inventory()
     local oldPaint = plyModel.Paint
     plyModel.Paint = function(self, w, h)
         draw.RoundedBox(0, 0, 0, w, h, Color(39, 39, 39, 150)) 
-        
         oldPaint(self, w, h)
     end
     
@@ -90,22 +88,16 @@ function Frame_Inventory()
         plyModel:SetLookAt(Vector(0, 0, (mn.z + mx.z) * 0.5))
     end
 
-
     plyModel.LayoutEntity = function() return false end
-
 
     plyModel.DrawModel = function(self)
         local alpha = main_inventory:GetAlpha() / 255
-        -- ахамбля
-        if alpha > 0.99 then 
-            alpha = 1 
-        end
+        if alpha > 0.99 then alpha = 1 end
 
         render.SetBlend(alpha)
         
         if IsValid(self.Entity) then
             self.Entity:DrawModel()
-            
             if self.PostDrawModel then
                 self:PostDrawModel(self.Entity)
             end
@@ -134,7 +126,6 @@ function Frame_Inventory()
     local function GenerateArmorSlots(parent_panel, model_panel)
         local slotSize = 75
         local spacing = 0
-        
         local modelX, modelY = model_panel:GetPos()
         local modelW, modelH = model_panel:GetSize()
         
@@ -142,7 +133,6 @@ function Frame_Inventory()
             for rowIndex, slots in pairs(rows) do
                 for colIndex, slotName in ipairs(slots) do
                     local posX, posY
-                    
                     posY = modelY + ((rowIndex - 1) * (slotSize + spacing))
                     
                     if side == "left_side" then
@@ -168,7 +158,6 @@ function Frame_Inventory()
                     local btn = vgui.Create("DButton", slotPanel)
                     btn:SetSize(slotSize, slotSize)
                     btn:SetText("")
-
                     btn:Droppable("Armor_Item")
 
                     btn.OnStartDragging = function(self)
@@ -193,18 +182,13 @@ function Frame_Inventory()
                     
                     btn.Paint = function(s, w, h)
                         local ply = LocalPlayer()
-                        
                         local printName = ""
                         local hasArmor = false
-
                         local rarityColor
-
                         local iconMat
                         
                         if ply.EZarmor then
                             local itemID, itemData, itemInfo = JMod.GetItemInSlot(ply.EZarmor, slotName)
-
-
                             if itemID and not s.PendingDrop then
                                 hasArmor = true
                                 printName = itemData.name
@@ -235,15 +219,13 @@ function Frame_Inventory()
                             surface.SetDrawColor(rarityColor.r, rarityColor.g, rarityColor.b, hasArmor and 200 or 50)
                             surface.DrawRect(0, h - 3, w, 3)
                         end
-                        
 
                         if s:IsHovered() then
                             draw.RoundedBox(0, 0, 0, w, h, Color(255, 255, 255, 2))
                         end
                     end
                     
-                    btn.DoClick = function()
-                    end
+                    btn.DoClick = function() end
                 end
             end
         end
@@ -467,16 +449,13 @@ function Frame_Inventory()
                 local btn = vgui.Create("DButton", slotPanel)
                 btn:SetSize(slotSize, slotSize)
                 btn:SetText("")
-
                 btn.SlotIndex = i
                 
                 local class = wep:GetClass()
                 local wepData = weapons.GetStored(class)
-                
                 local printName = (wepData and wepData.PrintName) and wepData.PrintName or (wep.GetPrintName and wep:GetPrintName()) or language.GetPhrase(class)
                 
                 if printName == class then printName = class end
-                
                 local rarityColor = kb.GetItemRarityColor(class)
 
                 btn.WepClass = class
@@ -536,11 +515,10 @@ function Frame_Inventory()
             local safeY_max = py + ph
 
             if mx < safeX_min or mx > safeX_max or my < safeY_min or my > safeY_max then
-                
                 local _, put_snd = kb.GetSoundClaimOrPut(pnl.ArmorEntClass or "")
                 surface.PlaySound(put_snd)
 
-                pnl.PendingDrop = true -- вот это хитро
+                pnl.PendingDrop = true
                 
                 net.Start("JMod_Inventory")
                 net.WriteInt(JMod.NETWORK_INDEX.ARMOR_INVENTORY.DROP, 8) 
@@ -560,7 +538,6 @@ function Frame_Inventory()
             local iw, ih = invPanel:GetSize()
 
             if mx < ix or mx > (ix + iw) or my < iy or my > (iy + ih) then
-
                 if IsValid(lootbox_frame) and not lootbox_frame.isClosing then
                     local lx, ly = lootbox_frame:LocalToScreen(0, 0)
                     local lw, lh = lootbox_frame:GetSize()
@@ -625,7 +602,6 @@ function Frame_Inventory()
     main_inventory.Paint = function(self, w, h)
         draw.RoundedBox(0, 0, 0, w, h, Color(0, 0, 0, 220))
         draw.SimpleText("KIZNEY BOX", "KB.1", w / 2 , h / 2, color_white_for_hui, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-
     end
 
     main_inventory.Think = function(self)
@@ -653,6 +629,11 @@ end
 net.Receive("KB_OpenLootBox", function()
     local box_ent = net.ReadEntity()
     local items = net.ReadTable()
+    local is_update = net.ReadBool()
+
+    if is_update and (not IsValid(lootbox_frame) or lootbox_frame.isClosing) then 
+        return 
+    end
 
     local count = table.Count(items)
     
@@ -992,6 +973,11 @@ end)
 net.Receive("KB_OpenPlayerInventory", function()
     local player_ent = net.ReadEntity()
     local items = net.ReadTable()
+    local is_update = net.ReadBool()
+
+    if is_update and (not IsValid(playerinventory_frame) or playerinventory_frame.isClosing) then 
+        return 
+    end
     
     local btnSize = 75
     local gap = 0
