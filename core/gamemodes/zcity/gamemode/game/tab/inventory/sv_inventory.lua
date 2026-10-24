@@ -20,9 +20,11 @@ net.Receive("KB_ClaimLoot", function(len, ply)
         local item = box_ent.Inventory[item_index]
         
         if item.claimed then return end
+
+        local is_food = string.StartWith(item.class, "food_")
         
         if ply:HasWeapon(item.class) then
-            if not item.ammo_taken then
+            if not item.ammo_taken and not is_food then
                 local wep = ply:GetWeapon(item.class)
                 if IsValid(wep) then
                     local ammo_type = wep:GetPrimaryAmmoType()
@@ -39,10 +41,19 @@ net.Receive("KB_ClaimLoot", function(len, ply)
             local wep = ply:Give(item.class, item.ammo_taken or false)
             item.claimed = true
             
-            if item.ammo_taken and IsValid(wep) then
-                wep:SetClip1(0)
+            if IsValid(wep) then
+                print(item.clip1)
+                if item.clip1 ~= nil then
+                    wep:SetClip1(item.clip1)
+                elseif item.ammo_taken then
+                    wep:SetClip1(0)
+                end
+
+                print(item.clip2)
                 
-                if wep:GetSecondaryAmmoType() ~= -1 then
+                if item.clip2 ~= nil then
+                    wep:SetClip2(item.clip2)
+                elseif item.ammo_taken and wep:GetSecondaryAmmoType() ~= -1 then
                     wep:SetClip2(0)
                 end
             end
@@ -76,12 +87,22 @@ net.Receive("KB_PutItem", function(len, ply)
         local item = box_ent.Inventory[item_index]
         
         if item.claimed and ply:HasWeapon(wep_class) then
+            local wep = ply:GetWeapon(wep_class)
+            local clip1, clip2 = 0, 0
+            
+            if IsValid(wep) then
+                clip1 = wep:Clip1()
+                clip2 = wep:Clip2()
+            end
+            
             ply:StripWeapon(wep_class)
             
             box_ent.Inventory[item_index] = {
                 class = wep_class,
                 claimed = false,
-                ammo_taken = false
+                ammo_taken = true,
+                clip1 = clip1,
+                clip2 = clip2
             }
             
             net.Start("KB_OpenLootBox")
