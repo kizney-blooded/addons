@@ -31,14 +31,21 @@ end
 
 function kb.GetSoundClaimOrPut(class)
     if string.StartWith(class, "kb_") then
-        local claim_sound = "garrysmod/ui_click.wav"
-        local put_sound = "garrysmod/ui_click.wav"
+        local claim_sound = "physics/weapon_impact_soft" .. math.random(1,3) .. ".wav" 
+        local put_sound = "physics/weapon_impact_hard" .. math.random(1,3) .. ".wav" 
+        
+        return claim_sound, put_sound
+    end
+
+    if string.StartWith(class, "food_") then
+        local claim_sound = "plastic/plastic_box_impact_soft" .. math.random(1,3) .. ".wav" 
+        local put_sound = "plastic/plastic_box_impact_soft" .. math.random(1,3) .. ".wav" 
         
         return claim_sound, put_sound
     end
     
-    local default_claim = "garrysmod/ui_click.wav"
-    local default_put = "garrysmod/ui_click.wav"
+    local default_claim = "plastic/plastic_box_impact_soft" .. math.random(1,3) .. ".wav" 
+    local default_put = "plastic/plastic_box_impact_soft" .. math.random(1,3) .. ".wav" 
     
     return default_claim, default_put
 end
