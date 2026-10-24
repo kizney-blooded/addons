@@ -18,7 +18,7 @@ SWEP.Primary.ClipSize = 30
 SWEP.Primary.DefaultClip = 30
 SWEP.Primary.Ammo = "ar2"
 
-SWEP.RecoilCamShot = 1.5
+SWEP.RecoilCamShot = 5
 
 SWEP.ReloadTime = 2
 

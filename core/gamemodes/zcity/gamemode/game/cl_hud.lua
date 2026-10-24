@@ -6,6 +6,7 @@ local lastPlayerColor = color_white
 hook.Add("HUDPaint", "player_targetid", function()
     local ply = LocalPlayer()
     if not IsValid(ply) then return end
+    if not ply:Alive() then return end
 
     local w , h = ScrW(), ScrH()
 
