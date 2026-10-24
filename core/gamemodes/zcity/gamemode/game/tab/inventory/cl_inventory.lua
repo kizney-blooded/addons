@@ -147,12 +147,16 @@ function Frame_Inventory()
                         local ply = LocalPlayer()
                         if not ply.EZarmor then return false end
                         
-                        local itemID = JMod.GetItemInSlot(ply.EZarmor, slotName)
+                        local itemID, itemData, itemInfo = JMod.GetItemInSlot(ply.EZarmor, slotName)
                         if not itemID then return false end
                         
                         self.DragArmorID = itemID 
+                        self.ArmorEntClass = itemInfo.ent
                         self.PendingDrop = false
                         self:SetPaintedManually(true)
+
+                        local claim_snd = kb.GetSoundClaimOrPut(itemInfo.ent)
+                        surface.PlaySound(claim_snd)
                     end
 
                     btn.OnStopDragging = function(self)
@@ -383,6 +387,9 @@ function Frame_Inventory()
                         local draggedClass = draggedBtn.WepClass
                         local targetClass = inventory_slot_memory[toIndex]
 
+                        local _, put_snd = kb.GetSoundClaimOrPut(draggedClass)
+                        surface.PlaySound(put_snd)
+
                         draggedBtn:SetVisible(false)
 
                         for _, child in ipairs(self_pnl:GetChildren()) do
@@ -404,6 +411,9 @@ function Frame_Inventory()
                         timer.Simple(0, function()
                             if IsValid(invPanel) then invPanel:Refresh() end
                         end)
+                    else
+                        local _, put_snd = kb.GetSoundClaimOrPut(draggedBtn.WepClass)
+                        surface.PlaySound(put_snd)
                     end
                 end
             end)
@@ -429,6 +439,8 @@ function Frame_Inventory()
 
                 btn.OnStartDragging = function(self)
                     self:SetPaintedManually(true)
+                    local claim_snd = kb.GetSoundClaimOrPut(self.WepClass)
+                    surface.PlaySound(claim_snd)
                 end
 
                 btn.OnStopDragging = function(self)
@@ -478,6 +490,9 @@ function Frame_Inventory()
 
             if mx < safeX_min or mx > safeX_max or my < safeY_min or my > safeY_max then
                 
+                local _, put_snd = kb.GetSoundClaimOrPut(pnl.ArmorEntClass or "")
+                surface.PlaySound(put_snd)
+
                 pnl.PendingDrop = true -- вот это хитро
                 
                 net.Start("JMod_Inventory")
@@ -506,6 +521,9 @@ function Frame_Inventory()
                         return 
                     end
                 end
+                
+                local _, put_snd = kb.GetSoundClaimOrPut(pnl.WepClass)
+                surface.PlaySound(put_snd)
 
                 if pnl.IsLootboxItem then
                     net.Start("KB_DropLootboxItem")
@@ -741,6 +759,9 @@ net.Receive("KB_OpenLootBox", function()
                             net.WriteUInt(pnl.SlotIndex, 8)
                             net.WriteUInt(self_pnl.SlotIndex, 8)
                         net.SendToServer()
+                        
+                        local _, put_snd = kb.GetSoundClaimOrPut(pnl.WepClass)
+                        surface.PlaySound(put_snd)
 
                         local temp_index = pnl.SlotIndex
                         pnl.SlotIndex = self_pnl.SlotIndex
@@ -777,6 +798,9 @@ net.Receive("KB_OpenLootBox", function()
                         net.WriteString(pnl.WepClass)
                     net.SendToServer()
                     
+                    local _, put_snd = kb.GetSoundClaimOrPut(pnl.WepClass)
+                    surface.PlaySound(put_snd)
+                    
                     pnl:SetVisible(false)
                     self_pnl.PendingPut = pnl.WepClass
                 end
@@ -808,6 +832,8 @@ net.Receive("KB_OpenLootBox", function()
 
             btn.OnStartDragging = function(self)
                 self:SetPaintedManually(true)
+                local claim_snd = kb.GetSoundClaimOrPut(self.WepClass)
+                surface.PlaySound(claim_snd)
             end
 
             btn.OnStopDragging = function(self)
@@ -835,6 +861,9 @@ net.Receive("KB_OpenLootBox", function()
             end
             
             btn.DoClick = function()
+                local claim_snd = kb.GetSoundClaimOrPut(btn.WepClass)
+                surface.PlaySound(claim_snd)
+
                 net.Start("KB_ClaimLoot")
                     net.WriteEntity(box_ent)
                     net.WriteUInt(btn.SlotIndex, 8) 

@@ -28,3 +28,17 @@ function kb.GetItemRarityColor(class)
 
     return kb.RarityColors[rarity] or kb.RarityColors[1]
 end
+
+function kb.GetSoundClaimOrPut(class)
+    if string.StartWith(class, "kb_") then
+        local claim_sound = "garrysmod/ui_click.wav"
+        local put_sound = "garrysmod/ui_click.wav"
+        
+        return claim_sound, put_sound
+    end
+    
+    local default_claim = "garrysmod/ui_click.wav"
+    local default_put = "garrysmod/ui_click.wav"
+    
+    return default_claim, default_put
+end
