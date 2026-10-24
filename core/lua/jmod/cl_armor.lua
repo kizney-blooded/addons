@@ -26,6 +26,8 @@ function JMod.ArmorPlayerModelDraw(ply, nomerge)
 
 		local Time = CurTime()
 
+		local isClient = ply == LocalPlayer() and GetViewEntity() == ply
+
 		if not JMod.ArmorTableOffsetCache or table.IsEmpty(JMod.ArmorTableOffsetCache) then
 			JMod.CopyAllArmorOffsets()
 		end
@@ -53,6 +55,10 @@ function JMod.ArmorPlayerModelDraw(ply, nomerge)
 						end
 					end
 				end
+			end
+
+			if isClient and ArmorInfo.bon == "ValveBiped.Bip01_Head1" then 
+				continue 
 			end
 
 			if IsValid(ply.EZarmorModels[id]) then

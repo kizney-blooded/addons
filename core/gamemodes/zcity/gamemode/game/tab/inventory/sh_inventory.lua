@@ -3,9 +3,10 @@ kb = kb or {}
 kb.RarityColors = {
     [1] = Color(148,148,148),
     [2] = Color(51,255,0),
-    [3] = Color(140,0,255),
-    [4] = Color(255,0,0),
-    [5] = Color(255,238,0),
+    [3] = Color(62,200,255),
+    [4] = Color(140,0,255),
+    [5] = Color(255,0,0),
+    [6] = Color(255,238,0),
 }
 
 kb.RarityItems = {
@@ -19,8 +20,10 @@ function kb.GetItemRarityColor(class)
         rarity = kb.RarityItems[class]
     elseif string.StartWith(class, "food_") then
         rarity = 2
-    elseif string.StartWith(class, "kb_") then
+    elseif string.StartWith(class, "ent_jack_") then
         rarity = 3
+    elseif string.StartWith(class, "kb_") then
+        rarity = 4
     end
 
     return kb.RarityColors[rarity] or kb.RarityColors[1]

@@ -10,7 +10,8 @@ local gradient_down = Material("gui/gradient_up")
 local weapon_blacklist = {
     ["wep_jack_gmod_hands"] = true,
     ["weapon_physcannon"] = true,
-    ["gmod_tool"] = true
+    ["gmod_tool"] = true,
+    ["weapon_physgun"] = true,
 }
 
 function Frame_Inventory()
@@ -59,24 +60,159 @@ function Frame_Inventory()
 
     plyModel.LayoutEntity = function() return false end
 
+
     plyModel.DrawModel = function(self)
         local alpha = main_inventory:GetAlpha() / 255
+        -- ахамбля
+        if alpha > 0.99 then 
+            alpha = 1 
+        end
 
         render.SetBlend(alpha)
-        
         
         if IsValid(self.Entity) then
             self.Entity:DrawModel()
             
-            if LocalPlayer().EZarmor then
-                self.Entity.EZarmor = LocalPlayer().EZarmor
-                
-                JMod.ArmorPlayerModelDraw(self.Entity, true)
+            if self.PostDrawModel then
+                self:PostDrawModel(self.Entity)
             end
         end
         
         render.SetBlend(1)
     end
+
+    plyModel.PostDrawModel = function(self, ent)
+        if not IsValid(ent) then return end
+        ent.EZarmor = LocalPlayer().EZarmor
+        JMod.ArmorPlayerModelDraw(ent, true)
+    end
+
+    kb.PositionArmorSlots = {
+        ["left_side"] = {
+            [1] = {"head", "head"},
+            [2] = {"chest", "chest"}
+        },
+        ["right_side"] = {
+            [1] = {"eyes", "mouthnose"},
+            [2] = {"pelvis", "back"}
+        },
+    }
+
+    local function GenerateArmorSlots(parent_panel, model_panel)
+        local slotSize = 75
+        local spacing = 0
+        
+        local modelX, modelY = model_panel:GetPos()
+        local modelW, modelH = model_panel:GetSize()
+        
+        for side, rows in pairs(kb.PositionArmorSlots) do
+            for rowIndex, slots in pairs(rows) do
+                for colIndex, slotName in ipairs(slots) do
+                    local posX, posY
+                    
+                    posY = modelY + ((rowIndex - 1) * (slotSize + spacing))
+                    
+                    if side == "left_side" then
+                        posX = modelX - (colIndex * (slotSize + spacing))
+                    elseif side == "right_side" then
+                        posX = modelX + modelW + ((colIndex - 1) * (slotSize + spacing))
+                    end
+                    
+                    local slotPanel = vgui.Create("DPanel", parent_panel)
+                    slotPanel:SetSize(slotSize, slotSize)
+                    slotPanel:SetPos(posX, posY)
+                    
+                    slotPanel.Paint = function(s, w, h)
+                        draw.RoundedBox(0, 0, 0, w, h, Color(39, 39, 39, 100))
+                        surface.SetDrawColor(73, 73, 73)
+                        surface.DrawLine(0, 0, w, 0)
+                        surface.DrawLine(0, 0, 0, h)
+                        surface.SetDrawColor(15, 15, 15, 150)
+                        surface.DrawLine(0, h - 1, w, h - 1) 
+                        surface.DrawLine(w - 1, 0, w - 1, h)
+                    end
+
+                    local btn = vgui.Create("DButton", slotPanel)
+                    btn:SetSize(slotSize, slotSize)
+                    btn:SetText("")
+
+                    btn:Droppable("Armor_Item")
+
+                    btn.OnStartDragging = function(self)
+                        local ply = LocalPlayer()
+                        if not ply.EZarmor then return false end
+                        
+                        local itemID = JMod.GetItemInSlot(ply.EZarmor, slotName)
+                        if not itemID then return false end
+                        
+                        self.DragArmorID = itemID 
+                        self.PendingDrop = false
+                        self:SetPaintedManually(true)
+                    end
+
+                    btn.OnStopDragging = function(self)
+                        self:SetPaintedManually(false)
+                    end
+                    
+                    btn.Paint = function(s, w, h)
+                        local ply = LocalPlayer()
+                        
+                        local printName = ""
+                        local hasArmor = false
+
+                        local rarityColor
+
+                        local iconMat
+                        
+                        if ply.EZarmor then
+                            local itemID, itemData, itemInfo = JMod.GetItemInSlot(ply.EZarmor, slotName)
+
+
+                            if itemID and not s.PendingDrop then
+                                hasArmor = true
+                                printName = itemData.name
+                                rarityColor = kb.GetItemRarityColor(itemInfo.ent)
+
+                                if not s.ItemIcon or s.LastEnt ~= itemInfo.ent then
+                                    s.ItemIcon = Material("entities/" .. itemInfo.ent .. ".png", "smooth")
+                                    s.LastEnt = itemInfo.ent
+                                end
+                                iconMat = s.ItemIcon
+                            end
+                        end
+
+                        if hasArmor then
+                            surface.SetDrawColor(rarityColor.r, rarityColor.g, rarityColor.b, 50)
+                            surface.SetMaterial(gradient_down)
+                            surface.DrawTexturedRect(0, 0, w, h)
+
+                            if iconMat and not iconMat:IsError() then
+                                surface.SetDrawColor(255, 255, 255, 255)
+                                surface.SetMaterial(iconMat)
+                                local iconSize = w * 0.7
+                                surface.DrawTexturedRect((w - iconSize) / 2, (h - iconSize) / 2 - 5, iconSize, iconSize)
+                            end
+
+                            draw.SimpleText(printName, "DermaDefault", w / 2, h - 6, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_BOTTOM)
+                        
+                            surface.SetDrawColor(rarityColor.r, rarityColor.g, rarityColor.b, hasArmor and 200 or 50)
+                            surface.DrawRect(0, h - 3, w, 3)
+                        end
+                        
+
+                        if s:IsHovered() then
+                            draw.RoundedBox(0, 0, 0, w, h, Color(255, 255, 255, 5))
+                        end
+                    end
+                    
+                    btn.DoClick = function()
+                    end
+                end
+            end
+        end
+    end
+
+    GenerateArmorSlots(main_inventory, plyModel)
 
     local invPanel = vgui.Create("DPanel", main_inventory)
     main_inventory.invPanel = invPanel
@@ -118,6 +254,10 @@ function Frame_Inventory()
                 surface.SetDrawColor(15, 15, 15, 255)
                 surface.DrawLine(0, h - 1, w, h - 1) 
                 surface.DrawLine(w - 1, 0, w - 1, h)
+
+                if s:IsHovered() then
+                    draw.RoundedBox(0, 0, 0, w, h, Color(255, 255, 255, 5))
+                end
             end
 
             if IsValid(wep) then
@@ -168,6 +308,32 @@ function Frame_Inventory()
     end
 
     invPanel:Refresh()
+
+    main_inventory:Receiver("Armor_Item", function(self, panels, isDropped, index, x, y)
+        if isDropped then
+            local pnl = panels[1]
+            if not IsValid(pnl) or not pnl.DragArmorID then return end
+
+            local mx, my = gui.MousePos()
+            local px, py = plyModel:LocalToScreen(0, 0)
+            local pw, ph = plyModel:GetSize()
+
+            local safeX_min = px - 150
+            local safeX_max = px + pw + 150
+            local safeY_min = py
+            local safeY_max = py + ph
+
+            if mx < safeX_min or mx > safeX_max or my < safeY_min or my > safeY_max then
+                
+                pnl.PendingDrop = true -- вот это хитро
+                
+                net.Start("JMod_Inventory")
+                net.WriteInt(JMod.NETWORK_INDEX.ARMOR_INVENTORY.DROP, 8) 
+                net.WriteString(pnl.DragArmorID)
+                net.SendToServer()
+            end
+        end
+    end)
 
     main_inventory:Receiver("Weapon_Item", function(self, panels, isDropped, index, x, y)
         if isDropped then
