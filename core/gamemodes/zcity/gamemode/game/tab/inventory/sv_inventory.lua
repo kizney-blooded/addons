@@ -1,6 +1,11 @@
 util.AddNetworkString("KB_ClaimLoot")
-util.AddNetworkString("KB_DropWeapon_Action")
 util.AddNetworkString("KB_PutItem")
+
+util.AddNetworkString("KB_DropWeapon_Action")
+util.AddNetworkString("KB_DropLootboxItem")
+
+
+util.AddNetworkString("KB_SwapLootboxItem")
 
 net.Receive("KB_ClaimLoot", function(len, ply)
     local box_ent = net.ReadEntity()
@@ -87,6 +92,25 @@ net.Receive("KB_PutItem", function(len, ply)
     end
 end)
 
+net.Receive("KB_SwapLootboxItem", function(len, ply)
+    local box_ent = net.ReadEntity()
+    local from_index = net.ReadUInt(8)
+    local to_index = net.ReadUInt(8)
+
+    if not IsValid(ply) or not ply:IsPlayer() then return end
+    if not IsValid(box_ent) or not box_ent.Inventory then return end
+    
+    if ply:GetPos():DistToSqr(box_ent:GetPos()) > 40000 then return end
+
+    local item_from = box_ent.Inventory[from_index]
+    local item_to = box_ent.Inventory[to_index]
+
+    if item_from and item_to then
+        box_ent.Inventory[from_index] = item_to
+        box_ent.Inventory[to_index] = item_from
+    end
+end)
+
 local blacklist = {
     ["wep_jack_gmod_hands"] = true
 }
@@ -110,5 +134,51 @@ net.Receive("KB_DropWeapon_Action", function(len, ply)
     local wep = ply:GetWeapon(wep_class)
     if IsValid(wep) then
         DropWeapon(ply, wep)
+    end
+end)
+
+net.Receive("KB_DropLootboxItem", function(len, ply)
+    local box_ent = net.ReadEntity()
+    local item_index = net.ReadUInt(8)
+
+    if not IsValid(ply) or not ply:IsPlayer() then return end
+    if not IsValid(box_ent) or not box_ent.Inventory then return end
+    
+    if ply:GetPos():DistToSqr(box_ent:GetPos()) > 40000 then return end
+
+    if box_ent.Inventory[item_index] then
+        local item = box_ent.Inventory[item_index]
+        
+        if item.claimed then return end
+        item.claimed = true
+        
+        local wep = ents.Create(item.class)
+        if IsValid(wep) then
+            local aim_vec = ply:GetAimVector()
+            local drop_pos = ply:GetShootPos() + aim_vec * 30 
+            
+            wep:SetPos(drop_pos)
+            wep:SetAngles(ply:EyeAngles())
+            wep:Spawn()
+            wep:Activate()
+            
+            local phys = wep:GetPhysicsObject()
+            if IsValid(phys) then
+                phys:Wake()
+                phys:SetVelocity(aim_vec * 200 + Vector(0, 0, 50)) 
+            end
+        end
+        
+        local has_items_left = false
+        for i = 1, #box_ent.Inventory do
+            if not box_ent.Inventory[i].claimed then
+                has_items_left = true
+                break
+            end
+        end
+        
+        if not has_items_left then
+            box_ent:Remove()
+        end
     end
 end)

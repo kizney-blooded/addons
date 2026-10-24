@@ -233,11 +233,16 @@ function Frame_Inventory()
     invPanel.Paint = function() end 
 
     invPanel.Refresh = function(self)
-
         local pending_claims = {}
-        for _, slot in ipairs(self:GetChildren()) do -- получение-детей
+        local targeted_claims = {}
+
+        for _, slot in ipairs(self:GetChildren()) do
             if slot.PendingClaim then
-                table.insert(pending_claims, slot.PendingClaim)
+                if slot.TargetSlotIndex then
+                    targeted_claims[slot.TargetSlotIndex] = slot.PendingClaim
+                else
+                    table.insert(pending_claims, slot.PendingClaim)
+                end
             end
         end
 
@@ -254,9 +259,13 @@ function Frame_Inventory()
 
         for i = 1, 8 do
             local stored_class = inventory_slot_memory[i]
-            if stored_class and not current_classes[stored_class] then
+            if stored_class and not current_classes[stored_class] and targeted_claims[i] ~= stored_class then
                 inventory_slot_memory[i] = nil
             end
+        end
+
+        for slot_idx, class in pairs(targeted_claims) do
+            inventory_slot_memory[slot_idx] = class
         end
 
         for class, wep in pairs(current_classes) do
@@ -302,13 +311,17 @@ function Frame_Inventory()
             slotPanel.Think = function(s)
                 if s.PendingClaim and LocalPlayer():HasWeapon(s.PendingClaim) then
                     s.PendingClaim = nil
+                    s.TargetSlotIndex = nil
                     if IsValid(self) then
                         self:Refresh()
                     end
                 end
             end
 
-            if not IsValid(wep) and #active_pending > 0 then
+            if targeted_claims[i] then
+                slotPanel.PendingClaim = targeted_claims[i]
+                slotPanel.TargetSlotIndex = i
+            elseif not IsValid(wep) and #active_pending > 0 then
                 slotPanel.PendingClaim = table.remove(active_pending, 1)
             end
             
@@ -352,6 +365,15 @@ function Frame_Inventory()
             slotPanel:Receiver("Weapon_Item", function(self_pnl, panels, isDropped, index_drop, x, y)
                 if isDropped then
                     local draggedBtn = panels[1]
+
+                    if IsValid(draggedBtn) and draggedBtn.IsLootboxItem then
+                        if not LocalPlayer():HasWeapon(draggedBtn.WepClass) then
+                            draggedBtn.TargetSlotIndex = i
+                        end
+                        draggedBtn:DoClick()
+                        return
+                    end
+
                     if not IsValid(draggedBtn) or not draggedBtn.WepClass or not draggedBtn.SlotIndex then return end
 
                     local fromIndex = draggedBtn.SlotIndex
@@ -485,17 +507,33 @@ function Frame_Inventory()
                     end
                 end
 
-                net.Start("KB_DropWeapon_Action")
-                net.WriteString(pnl.WepClass)
-                net.SendToServer()
-                 
-                pnl:SetVisible(false) 
-                
-                timer.Simple(0.1, function()
-                    if IsValid(invPanel) then
-                        invPanel:Refresh()
+                if pnl.IsLootboxItem then
+                    net.Start("KB_DropLootboxItem")
+                        net.WriteEntity(pnl.BoxEnt)
+                        net.WriteUInt(pnl.SlotIndex, 8)
+                    net.SendToServer()
+                    
+                    pnl:Remove()
+                    
+                    if IsValid(lootbox_frame) then
+                        lootbox_frame.RemainingItems = (lootbox_frame.RemainingItems or 1) - 1
+                        if lootbox_frame.RemainingItems <= 0 then
+                            timer.Simple(0.1, function()
+                                if IsValid(lootbox_frame) then lootbox_frame:Close() end
+                            end)
+                        end
                     end
-                end)
+                else
+                    net.Start("KB_DropWeapon_Action")
+                    net.WriteString(pnl.WepClass)
+                    net.SendToServer()
+                     
+                    pnl:SetVisible(false) 
+                    
+                    timer.Simple(0.1, function()
+                        if IsValid(invPanel) then invPanel:Refresh() end
+                    end)
+                end
             end
         end
     end)
@@ -604,10 +642,12 @@ net.Receive("KB_OpenLootBox", function()
             remainingItems = remainingItems + 1
         end
     end
+    lootbox_frame.RemainingItems = remainingItems
 
     for index, item in ipairs(items) do
         local slotPanel = vgui.Create("DPanel", lootbox_frame.Scroll)
         slotPanel:SetSize(btnSize, btnSize)
+        slotPanel.SlotIndex = index
 
         slotPanel.RealSetPos = slotPanel.SetPos
         
@@ -679,31 +719,77 @@ net.Receive("KB_OpenLootBox", function()
         end
 
         local function SetupReceiver()
-            slotPanel:Receiver("Weapon_Item", function(self, panels, isDropped, drop_index, x, y)
+            slotPanel:Receiver("Weapon_Item", function(self_pnl, panels, isDropped, drop_index, x, y)
                 if isDropped then
                     local pnl = panels[1]
                     if not IsValid(pnl) or not pnl.WepClass then return end
 
+                    if pnl.IsLootboxItem then
+                        local old_parent = pnl:GetParent()
+                        if old_parent == self_pnl then return end
+
+                        local existing_btn = nil
+                        for _, child in ipairs(self_pnl:GetChildren()) do
+                            if child:GetName() == "DButton" and child ~= pnl then
+                                existing_btn = child
+                                break
+                            end
+                        end
+
+                        net.Start("KB_SwapLootboxItem")
+                            net.WriteEntity(box_ent)
+                            net.WriteUInt(pnl.SlotIndex, 8)
+                            net.WriteUInt(self_pnl.SlotIndex, 8)
+                        net.SendToServer()
+
+                        local temp_index = pnl.SlotIndex
+                        pnl.SlotIndex = self_pnl.SlotIndex
+
+                        if existing_btn then
+                            existing_btn.SlotIndex = temp_index
+                            existing_btn:SetParent(old_parent)
+                            existing_btn:SetPos(0, 0)
+                        end
+                        
+                        pnl:SetParent(self_pnl)
+                        pnl:SetPos(0, 0)
+
+                        local temp_item = items[temp_index]
+                        items[temp_index] = items[pnl.SlotIndex]
+                        items[pnl.SlotIndex] = temp_item
+
+                        return
+                    end
+
+                    local is_empty = true
+                    for _, child in ipairs(self_pnl:GetChildren()) do
+                        if child:GetName() == "DButton" and child:IsVisible() then
+                            is_empty = false
+                            break
+                        end
+                    end
+
+                    if not is_empty or self_pnl.PendingPut then return end
+
                     net.Start("KB_PutItem")
                         net.WriteEntity(box_ent)
-                        net.WriteUInt(index, 8) 
+                        net.WriteUInt(self_pnl.SlotIndex, 8) 
                         net.WriteString(pnl.WepClass)
                     net.SendToServer()
                     
                     pnl:SetVisible(false)
-
-                    self.PendingPut = pnl.WepClass
+                    self_pnl.PendingPut = pnl.WepClass
                 end
             end)
         end
 
-        if item.claimed then
-            SetupReceiver()
-        end
+        SetupReceiver()
 
         if not item.claimed then
             local btn = vgui.Create("DButton", slotPanel)
             btn:SetSize(btnSize, btnSize)
+            btn.SlotIndex = index
+            btn.BoxEnt = box_ent
 
             local wep = weapons.GetStored(item.class)
             local printName = (wep and wep.PrintName) and wep.PrintName or language.GetPhrase(item.class)
@@ -715,6 +801,18 @@ net.Receive("KB_OpenLootBox", function()
             local rarityColor = kb.GetItemRarityColor(item.class)
             
             btn:SetText("")
+
+            btn.WepClass = item.class
+            btn.IsLootboxItem = true
+            btn:Droppable("Weapon_Item")
+
+            btn.OnStartDragging = function(self)
+                self:SetPaintedManually(true)
+            end
+
+            btn.OnStopDragging = function(self)
+                self:SetPaintedManually(false)
+            end
 
             btn.Paint = function(self, w, h)
                 surface.SetDrawColor(rarityColor.r, rarityColor.g, rarityColor.b, 50)
@@ -739,25 +837,31 @@ net.Receive("KB_OpenLootBox", function()
             btn.DoClick = function()
                 net.Start("KB_ClaimLoot")
                     net.WriteEntity(box_ent)
-                    net.WriteUInt(index, 8) 
+                    net.WriteUInt(btn.SlotIndex, 8) 
                 net.SendToServer()
 
-                if IsValid(main_inventory) and IsValid(main_inventory.invPanel) then
-                    local dummy = vgui.Create("Panel", main_inventory.invPanel) -- я гений
-                    dummy.PendingClaim = item.class
-                    
-                    main_inventory.invPanel:Refresh()
+                if not LocalPlayer():HasWeapon(item.class) then
+                    if IsValid(main_inventory) and IsValid(main_inventory.invPanel) then
+                        local dummy = vgui.Create("Panel", main_inventory.invPanel) 
+                        dummy.PendingClaim = item.class
+                        
+                        if btn.TargetSlotIndex then
+                            dummy.TargetSlotIndex = btn.TargetSlotIndex
+                        end
+                        
+                        main_inventory.invPanel:Refresh()
+                    end
                 end
 
                 if not LocalPlayer():HasWeapon(item.class) then
                     btn:Remove()
 
                     item.claimed = true 
-                    SetupReceiver()
+                    --SetupReceiver()
                 
-                    remainingItems = remainingItems - 1
+                    lootbox_frame.RemainingItems = lootbox_frame.RemainingItems - 1
 
-                    if remainingItems <= 0 then
+                    if lootbox_frame.RemainingItems <= 0 then
                         timer.Simple(0.1, function() 
                             if IsValid(lootbox_frame) then
                                 lootbox_frame:Close()
