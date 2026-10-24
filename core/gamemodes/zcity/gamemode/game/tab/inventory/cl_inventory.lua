@@ -16,6 +16,8 @@ local weapon_blacklist = {
 
 local color_white_for_hui = Color(255,255,255,5)
 
+inventory_slot_memory = inventory_slot_memory or {}
+
 function Frame_Inventory()
     if IsValid(main_inventory) then return end
     
@@ -242,16 +244,47 @@ function Frame_Inventory()
         self:Clear()
 
         local weps = LocalPlayer():GetWeapons()
-        local valid_weps = {}
-        local real_classes = {}
+        local current_classes = {}
         
         for _, wep in ipairs(weps) do
             if IsValid(wep) and not weapon_blacklist[wep:GetClass()] then
-                table.insert(valid_weps, wep)
+                current_classes[wep:GetClass()] = wep
+            end
+        end
+
+        for i = 1, 8 do
+            local stored_class = inventory_slot_memory[i]
+            if stored_class and not current_classes[stored_class] then
+                inventory_slot_memory[i] = nil
+            end
+        end
+
+        for class, wep in pairs(current_classes) do
+            local is_stored = false
+            for i = 1, 8 do
+                if inventory_slot_memory[i] == class then
+                    is_stored = true
+                    break
+                end
+            end
+            
+            if not is_stored then
+                for i = 1, 8 do
+                    if not inventory_slot_memory[i] then
+                        inventory_slot_memory[i] = class
+                        break
+                    end
+                end
             end
         end
 
         local active_pending = {}
+        local real_classes = {}
+        
+        for _, class in pairs(inventory_slot_memory) do
+            real_classes[class] = true
+        end
+
         for _, class in ipairs(pending_claims) do
             if not real_classes[class] then
                 table.insert(active_pending, class)
@@ -263,7 +296,8 @@ function Frame_Inventory()
             slotPanel:SetSize(slotSize, slotSize)
             slotPanel:SetPos((i - 1) * (slotSize + spacing), 0)
             
-            local wep = valid_weps[i]
+            local wep_class = inventory_slot_memory[i]
+            local wep = wep_class and current_classes[wep_class] or nil
 
             if not IsValid(wep) and #active_pending > 0 then
                 slotPanel.PendingClaim = table.remove(active_pending, 1)
@@ -306,10 +340,49 @@ function Frame_Inventory()
                 end
             end
 
+            slotPanel:Receiver("Weapon_Item", function(self_pnl, panels, isDropped, index_drop, x, y)
+                if isDropped then
+                    local draggedBtn = panels[1]
+                    if not IsValid(draggedBtn) or not draggedBtn.WepClass or not draggedBtn.SlotIndex then return end
+
+                    local fromIndex = draggedBtn.SlotIndex
+                    local toIndex = i 
+
+                    if fromIndex ~= toIndex then
+                        local draggedClass = draggedBtn.WepClass
+                        local targetClass = inventory_slot_memory[toIndex]
+
+                        draggedBtn:SetVisible(false)
+
+                        for _, child in ipairs(self_pnl:GetChildren()) do
+                            if child:GetName() == "DButton" then
+                                child:SetVisible(false)
+                            end
+                        end
+
+                        inventory_slot_memory[toIndex] = inventory_slot_memory[fromIndex]
+                        inventory_slot_memory[fromIndex] = targetClass
+                        
+                        self_pnl.PendingClaim = draggedClass
+                        
+                        local fromPanel = invPanel:GetChild(fromIndex - 1)
+                        if IsValid(fromPanel) then
+                            fromPanel.PendingClaim = targetClass
+                        end
+                        
+                        timer.Simple(0, function()
+                            if IsValid(invPanel) then invPanel:Refresh() end
+                        end)
+                    end
+                end
+            end)
+
             if IsValid(wep) then
                 local btn = vgui.Create("DButton", slotPanel)
                 btn:SetSize(slotSize, slotSize)
                 btn:SetText("")
+
+                btn.SlotIndex = i
                 
                 local class = wep:GetClass()
                 local printName = wep.PrintName or language.GetPhrase(class)
@@ -403,7 +476,7 @@ function Frame_Inventory()
                 net.Start("KB_DropWeapon_Action")
                 net.WriteString(pnl.WepClass)
                 net.SendToServer()
-                
+                 
                 pnl:SetVisible(false) 
                 
                 timer.Simple(0.1, function()
@@ -657,11 +730,12 @@ net.Receive("KB_OpenLootBox", function()
                     net.WriteUInt(index, 8) 
                 net.SendToServer()
 
-                timer.Simple(0.1, function()
-                    if IsValid(main_inventory) and IsValid(main_inventory.invPanel) then
-                        main_inventory.invPanel:Refresh()
-                    end
-                end)
+                if IsValid(main_inventory) and IsValid(main_inventory.invPanel) then
+                    local dummy = vgui.Create("Panel", main_inventory.invPanel) -- я гений
+                    dummy.PendingClaim = item.class
+                    
+                    main_inventory.invPanel:Refresh()
+                end
 
                 if not LocalPlayer():HasWeapon(item.class) then
                     btn:Remove()
