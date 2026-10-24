@@ -299,6 +299,15 @@ function Frame_Inventory()
             local wep_class = inventory_slot_memory[i]
             local wep = wep_class and current_classes[wep_class] or nil
 
+            slotPanel.Think = function(s)
+                if s.PendingClaim and LocalPlayer():HasWeapon(s.PendingClaim) then
+                    s.PendingClaim = nil
+                    if IsValid(self) then
+                        self:Refresh()
+                    end
+                end
+            end
+
             if not IsValid(wep) and #active_pending > 0 then
                 slotPanel.PendingClaim = table.remove(active_pending, 1)
             end
@@ -385,7 +394,10 @@ function Frame_Inventory()
                 btn.SlotIndex = i
                 
                 local class = wep:GetClass()
-                local printName = wep.PrintName or language.GetPhrase(class)
+                local wepData = weapons.GetStored(class)
+                
+                local printName = (wepData and wepData.PrintName) and wepData.PrintName or (wep.GetPrintName and wep:GetPrintName()) or language.GetPhrase(class)
+                
                 if printName == class then printName = class end
                 
                 local rarityColor = kb.GetItemRarityColor(class)
