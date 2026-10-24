@@ -201,7 +201,7 @@ function Frame_Inventory()
                         
 
                         if s:IsHovered() then
-                            draw.RoundedBox(0, 0, 0, w, h, Color(255, 255, 255, 5))
+                            draw.RoundedBox(0, 0, 0, w, h, Color(255, 255, 255, 2))
                         end
                     end
                     
@@ -256,7 +256,7 @@ function Frame_Inventory()
                 surface.DrawLine(w - 1, 0, w - 1, h)
 
                 if s:IsHovered() then
-                    draw.RoundedBox(0, 0, 0, w, h, Color(255, 255, 255, 5))
+                    draw.RoundedBox(0, 0, 0, w, h, Color(255, 255, 255, 2))
                 end
             end
 
@@ -298,7 +298,7 @@ function Frame_Inventory()
                     surface.DrawRect(0, h - 3, w, 3)
 
                     if s:IsHovered() then
-                        draw.RoundedBox(0, 0, 0, w, h, Color(255, 255, 255, 5))
+                        draw.RoundedBox(0, 0, 0, w, h, Color(255, 255, 255, 2))
                     end
                 end
                 
@@ -500,6 +500,10 @@ net.Receive("KB_OpenLootBox", function()
             surface.SetDrawColor(15, 15, 15, 255)
             surface.DrawLine(0, h - 1, w, h - 1) 
             surface.DrawLine(w - 1, 0, w - 1, h)
+
+            if self:IsHovered() then
+                draw.RoundedBox(0, 0, 0, w, h, Color(255, 255, 255, 2))
+            end
         end
 
         if not item.claimed then
@@ -533,7 +537,7 @@ net.Receive("KB_OpenLootBox", function()
                 surface.DrawRect(0, h - 3, w, 3)
 
                 if self:IsHovered() then
-                    draw.RoundedBox(0, 0, 0, w, h, Color(255, 255, 255, 1))
+                    draw.RoundedBox(0, 0, 0, w, h, Color(255, 255, 255, 2))
                 end
             end
             
