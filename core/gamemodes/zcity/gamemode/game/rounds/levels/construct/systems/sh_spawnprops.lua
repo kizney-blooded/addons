@@ -580,22 +580,35 @@ Props_4[327] = 			"models/unconid/pc_models/monitors/lcd_ultrawide_nc.mdl"
 Props_4[328] = 			"models/unconid/pc_models/monitors/lcd_acer_16x9.mdl"
 Props_4[329] = 			"models/unconid/pc_models/monitors/lcd_lg_4x3.mdl"
 
+Ents_1 = {}
+Ents_1[1] = { class = "con_lootbox", model = "models/sarma_crates/static_crate_40.mdl", name = "Хранилище" }
+
 if CLIENT then
     local CfgVars = {}
     local WEBSITE = {}
     CfgVars["EquipmentDecayTimer"] = 3
     CfgVars["WeaponDecayTimer"] = 3
     CfgVars["DrugDecayTimer"] = 3
+
     local buytable = {}
-    buytable["1) Конструкции:"] = {}
-    buytable["1) Конструкции:"].Model = Props_1
-    buytable["1) Конструкции:"].Data = Props_1
-    buytable["2) Пластины, кубы:"] = {}
-    buytable["2) Пластины, кубы:"].Model = Props_3
-    buytable["2) Пластины, кубы:"].Data = Props_3
-    buytable["3) Декор:"] = {}
-    buytable["3) Декор:"].Model = Props_4
-    buytable["3) Декор:"].Data = Props_4
+
+    buytable["1) Энтити:"] = {}
+    buytable["1) Энтити:"].Model = Ents_1
+    buytable["1) Энтити:"].Data = Ents_1
+    buytable["1) Энтити:"].IsEntity = true
+
+    buytable["2) Конструкции:"] = {}
+    buytable["2) Конструкции:"].Model = Props_1
+    buytable["2) Конструкции:"].Data = Props_1
+    
+    buytable["3) Пластины, кубы:"] = {}
+    buytable["3) Пластины, кубы:"].Model = Props_3
+    buytable["3) Пластины, кубы:"].Data = Props_3
+    
+    buytable["4) Декор:"] = {}
+    buytable["4) Декор:"].Model = Props_4
+    buytable["4) Декор:"].Data = Props_4
+    
     local PANEL = {}
 
     function PANEL:Init()
@@ -645,27 +658,54 @@ if CLIENT then
             Content:SetSpacing(2)
             Content:SetPadding(2)
             Content:SetAutoSize(true)
-            number = 1
+
+            local isEnt = buytable[CategoryName].IsEntity
+            local number = 1
 
             for k, v in pairs(buytable[CategoryName].Model) do
-              
                 local Icon = vgui.Create("SpawnIcon", self)
-                local Model = buytable[CategoryName].Model[number]
+                local currentItem = buytable[CategoryName].Model[number]
 
-                if (buytable[CategoryName].Model[number] ~= nil) then
-                    Icon:SetModel(buytable[CategoryName].Model[number])
+                if (currentItem ~= nil) then
+                    if isEnt then
+                        Icon:SetModel(currentItem.model)
+                    else
+                        Icon:SetModel(currentItem)
+                    end
                 else
                     Icon:SetModel("models/error.mdl")
                 end
 
                 Icon.DoClick = function()
-                    RunConsoleCommand("gm_spawn", Model)
+                    if isEnt then
+                        RunConsoleCommand("gm_spawnsent", currentItem.class)
+                    else
+                        RunConsoleCommand("gm_spawn", currentItem)
+                    end
                 end
 
                 local lable = vgui.Create("DLabel", Icon)
                 lable:SetFont("DebugFixedSmall")
                 lable:SetTextColor(color_black)
-                lable:SetText(Model)
+                
+                if isEnt then
+                    lable:SetText(currentItem.name)
+                    lable:SetFont("DermaDefault")
+                    lable:SetTextColor(color_white)
+                    lable.Paint = function(self, w, h)
+                        surface.SetDrawColor(0, 0, 0, 200)
+                        surface.DrawRect(0, 0, w, h)
+                    end
+                    lable:Dock(BOTTOM)
+                    lable:SetTall(20)
+                else
+                    lable:SetText(currentItem)
+                    lable:SetFont("DebugFixedSmall")
+                    lable:SetTextColor(color_black)
+                    lable:SetWide(self:GetWide())
+                    lable:AlignBottom(-42)
+                end
+                
                 lable:SetContentAlignment(5)
                 lable:SetWide(self:GetWide())
                 lable:AlignBottom(-42)
