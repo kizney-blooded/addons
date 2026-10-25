@@ -18,7 +18,7 @@ function kb.GetItemRarityColor(class)
 
     if kb.RarityItems[class] then
         rarity = kb.RarityItems[class]
-    elseif string.StartWith(class, "food_") then
+    elseif string.StartWith(class, "food_") or string.StartWith(class, "weapon_hg_") then
         rarity = 2
     elseif string.StartWith(class, "ent_jack_") then
         rarity = 3

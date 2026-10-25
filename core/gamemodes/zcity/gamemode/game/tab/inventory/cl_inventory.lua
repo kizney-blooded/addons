@@ -20,6 +20,51 @@ local color_white_for_hui = Color(255,255,255,5)
 
 inventory_slot_memory = inventory_slot_memory or {}
 
+local function GetItemPrintName(class, wepData)
+    if string.StartWith(class, "ent_jack_gmod_ezarmor") then
+        if JMod then
+            local tbls = {JMod.ArmorTable, JMod.EFTArmorTable, JMod.ArmorTableEFT}
+            for _, tbl in ipairs(tbls) do
+                if tbl then
+                    for k, v in pairs(tbl) do
+                        if v.ent == class then 
+                            return v.PrintName or v.name or k 
+                        end
+                    end
+                end
+            end
+        end
+    end
+    
+    local printName = (wepData and wepData.PrintName) and wepData.PrintName or (wepData and wepData.GetPrintName and wepData:GetPrintName()) or language.GetPhrase(class)
+    if printName == class then printName = class end
+    return printName
+end
+
+local function GetArmorSlotNames(class)
+    local slots = {}
+    if JMod then
+        local tbls = {JMod.ArmorTable, JMod.EFTArmorTable, JMod.ArmorTableEFT}
+        for _, tbl in ipairs(tbls) do
+            if tbl then
+                for k, v in pairs(tbl) do
+                    if v.ent == class then 
+                        if type(v.slots) == "table" then
+                            for slotName, _ in pairs(v.slots) do
+                                table.insert(slots, slotName)
+                            end
+                            return slots
+                        elseif type(v.slots) == "string" then
+                            return {v.slots}
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return slots
+end
+
 local function SyncInventorySlotsToServer()
     net.Start("KB_SyncInventorySlots")
     net.WriteTable(inventory_slot_memory)
@@ -124,7 +169,6 @@ function Frame_Inventory()
             [2] = {"waist", "pelvis"},
             [3] = {"rightshoulder", "rightforearm"},
             [4] = {"rightthigh","rightcalf"},
-
         },
     }
 
@@ -134,6 +178,8 @@ function Frame_Inventory()
         local modelX, modelY = model_panel:GetPos()
         local modelW, modelH = model_panel:GetSize()
         
+        parent_panel.ArmorSlotPanels = parent_panel.ArmorSlotPanels or {}
+
         for side, rows in pairs(kb.PositionArmorSlots) do
             for rowIndex, slots in pairs(rows) do
                 for colIndex, slotName in ipairs(slots) do
@@ -150,6 +196,8 @@ function Frame_Inventory()
                     slotPanel:SetSize(slotSize, slotSize)
                     slotPanel:SetPos(posX, posY)
                     
+                    parent_panel.ArmorSlotPanels[slotName] = slotPanel
+
                     slotPanel.Paint = function(s, w, h)
                         draw.RoundedBox(0, 0, 0, w, h, Color(39, 39, 39, 100))
                         surface.SetDrawColor(73, 73, 73)
@@ -160,20 +208,56 @@ function Frame_Inventory()
                         surface.DrawLine(w - 1, 0, w - 1, h)
                     end
 
-                    slotPanel:Receiver("Armor_Item", function(self_pnl, panels, isDropped, index, x, y)
+                    slotPanel:Receiver("KB_Item", function(self_pnl, panels, isDropped, index, x, y)
                         if isDropped then
                             local pnl = panels[1]
-                            if IsValid(pnl) and pnl.DragArmorID and pnl.IsTargetArmor then
+                            if not IsValid(pnl) then return end
+
+                            if pnl.DragArmorID and pnl.IsTargetArmor then
                                 local _, put_snd = kb.GetSoundClaimOrPut(pnl.ArmorEntClass or "")
                                 surface.PlaySound(put_snd)
                                 pnl.PendingDrop = true
                                 
-                                slotPanel.PendingEquip = pnl.ArmorEntClass
+                                local tSlots = GetArmorSlotNames(pnl.ArmorEntClass)
+                                for _, sName in ipairs(tSlots) do
+                                    if parent_panel.ArmorSlotPanels[sName] then
+                                        parent_panel.ArmorSlotPanels[sName].PendingEquip = pnl.ArmorEntClass
+                                    end
+                                end
                                 
                                 net.Start("KB_TransferArmorToLocal")
                                 net.WriteEntity(pnl.ArmorOwner_Container)
                                 net.WriteString(pnl.DragArmorID)
                                 net.SendToServer()
+                                
+                            elseif pnl.IsLootboxItem and pnl.WepClass and string.StartWith(pnl.WepClass, "ent_jack_gmod_ezarmor") then
+                                local _, put_snd = kb.GetSoundClaimOrPut(pnl.WepClass)
+                                surface.PlaySound(put_snd)
+                                
+                                pnl.PendingDrop = true
+                                pnl:SetVisible(false) 
+                                
+                                local tSlots = GetArmorSlotNames(pnl.WepClass)
+                                for _, sName in ipairs(tSlots) do
+                                    if parent_panel.ArmorSlotPanels[sName] then
+                                        parent_panel.ArmorSlotPanels[sName].PendingEquip = pnl.WepClass
+                                    end
+                                end
+                                
+                                net.Start("KB_ClaimLoot")
+                                    net.WriteEntity(pnl.BoxEnt)
+                                    net.WriteUInt(pnl.SlotIndex, 8)
+                                net.SendToServer()
+                                
+                                local parent_frame = pnl.BoxEnt:GetClass() == "prop_ragdoll" and playerinventory_frame or lootbox_frame
+                                if IsValid(parent_frame) then
+                                    parent_frame.RemainingItems = (parent_frame.RemainingItems or 1) - 1
+                                    if parent_frame.RemainingItems <= 0 and not pnl.BoxEnt.IsStorage then
+                                        timer.Simple(0.1, function()
+                                            if IsValid(parent_frame) then parent_frame:Close() end
+                                        end)
+                                    end
+                                end
                             end
                         end
                     end)
@@ -181,7 +265,7 @@ function Frame_Inventory()
                     local btn = vgui.Create("DButton", slotPanel)
                     btn:SetSize(slotSize, slotSize)
                     btn:SetText("")
-                    btn:Droppable("Armor_Item")
+                    btn:Droppable("KB_Item")
 
                     btn.OnStartDragging = function(self)
                         local ply = LocalPlayer()
@@ -418,13 +502,21 @@ function Frame_Inventory()
                     surface.DrawTexturedRect(0, 0, w, h)
 
                     local wepData = weapons.GetStored(class)
-                    if wepData then
+                    
+                    if string.StartWith(class, "ent_jack_gmod_ezarmor") then
+                        local iconMat = Material("entities/" .. class .. ".png", "smooth")
+                        if not iconMat:IsError() then
+                            surface.SetDrawColor(255, 255, 255, 255)
+                            surface.SetMaterial(iconMat)
+                            local iconSize = w * 0.7
+                            surface.DrawTexturedRect((w - iconSize) / 2, (h - iconSize) / 2 - 5, iconSize, iconSize)
+                        end
+                    elseif wepData then
                         local sx, sy = s:LocalToScreen(0, -15)
                         KB_DrawWeaponSelection(wepData, sx, sy, w, h, 255)
                     end
                     
-                    local printName = (wepData and wepData.PrintName) and wepData.PrintName or language.GetPhrase(class)
-                    if printName == class then printName = class end
+                    local printName = GetItemPrintName(class, wepData)
                     
                     draw.SimpleText(printName, "DermaDefault", w / 2, h - 6, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_BOTTOM)
                     
@@ -433,9 +525,11 @@ function Frame_Inventory()
                 end
             end
 
-            slotPanel:Receiver("Weapon_Item", function(self_pnl, panels, isDropped, index_drop, x, y)
+            slotPanel:Receiver("KB_Item", function(self_pnl, panels, isDropped, index_drop, x, y)
                 if isDropped then
                     local draggedBtn = panels[1]
+
+                    if IsValid(draggedBtn) and draggedBtn.DragArmorID then return end
 
                     if IsValid(draggedBtn) and draggedBtn.IsLootboxItem then
                         if not LocalPlayer():HasWeapon(draggedBtn.WepClass) then
@@ -495,13 +589,11 @@ function Frame_Inventory()
                 
                 local class = wep:GetClass()
                 local wepData = weapons.GetStored(class)
-                local printName = (wepData and wepData.PrintName) and wepData.PrintName or (wep.GetPrintName and wep:GetPrintName()) or language.GetPhrase(class)
-                
-                if printName == class then printName = class end
+                local printName = GetItemPrintName(class, wepData)
                 local rarityColor = kb.GetItemRarityColor(class)
 
                 btn.WepClass = class
-                btn:Droppable("Weapon_Item") 
+                btn:Droppable("KB_Item") 
 
                 btn.OnStartDragging = function(self)
                     self:SetPaintedManually(true)
@@ -518,9 +610,19 @@ function Frame_Inventory()
                     surface.SetMaterial(gradient_down)
                     surface.DrawTexturedRect(0, 0, w, h)
 
-                    local sx, sy = s:LocalToScreen(0, -15)
-                    if KB_DrawWeaponSelection then
-                        KB_DrawWeaponSelection(wep, sx, sy, w, h, 255)
+                    if string.StartWith(class, "ent_jack_gmod_ezarmor") then
+                        local iconMat = Material("entities/" .. class .. ".png", "smooth")
+                        if not iconMat:IsError() then
+                            surface.SetDrawColor(255, 255, 255, 255)
+                            surface.SetMaterial(iconMat)
+                            local iconSize = w * 0.7
+                            surface.DrawTexturedRect((w - iconSize) / 2, (h - iconSize) / 2 - 5, iconSize, iconSize)
+                        end
+                    else
+                        local sx, sy = s:LocalToScreen(0, -15)
+                        if KB_DrawWeaponSelection then
+                            KB_DrawWeaponSelection(wep, sx, sy, w, h, 255)
+                        end
                     end
                     
                     draw.SimpleText(printName, "DermaDefault", w / 2, h - 6, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_BOTTOM)
@@ -542,112 +644,107 @@ function Frame_Inventory()
 
     invPanel:Refresh()
 
-    main_inventory:Receiver("Armor_Item", function(self, panels, isDropped, index, x, y)
-        if isDropped then
-            local pnl = panels[1]
-            if not IsValid(pnl) or not pnl.DragArmorID then return end
-
-            local mx, my = gui.MousePos()
-            local px, py = plyModel:LocalToScreen(0, 0)
-            local pw, ph = plyModel:GetSize()
-
-            local in_local_safe = (mx >= px - 150 and mx <= px + pw + 150 and my >= py and my <= py + ph)
-            
-            local in_target_safe = false
-            if IsValid(playerinventory_frame) and IsValid(playerinventory_frame.TargetModelContainer) then
-                local tx, ty = playerinventory_frame.TargetModelContainer:LocalToScreen(0, 0)
-                local tw, th = playerinventory_frame.TargetModelContainer:GetSize()
-                if mx >= tx - 150 and mx <= tx + tw + 150 and my >= ty and my <= ty + th then
-                    in_target_safe = true
-                end
-            end
-
-            if not in_local_safe and not in_target_safe then
-                local _, put_snd = kb.GetSoundClaimOrPut(pnl.ArmorEntClass or "")
-                surface.PlaySound(put_snd)
-                pnl.PendingDrop = true
-                
-                if pnl.IsTargetArmor then
-                    net.Start("KB_DropTargetArmor")
-                    net.WriteEntity(pnl.ArmorOwner_Container)
-                    net.WriteString(pnl.DragArmorID)
-                    net.SendToServer()
-                else
-                    net.Start("JMod_Inventory")
-                    net.WriteInt(JMod.NETWORK_INDEX.ARMOR_INVENTORY.DROP, 8) 
-                    net.WriteString(pnl.DragArmorID)
-                    net.SendToServer()
-                end
-            end
-        end
-    end)
-
-    main_inventory:Receiver("Weapon_Item", function(self, panels, isDropped, index, x, y)
+    main_inventory:Receiver("KB_Item", function(self, panels, isDropped, index, x, y)
         if isDropped then
             local pnl = panels[1]
             if not IsValid(pnl) then return end
 
-            local mx, my = gui.MousePos()
-            local ix, iy = invPanel:LocalToScreen(0, 0)
-            local iw, ih = invPanel:GetSize()
+            if pnl.DragArmorID then
+                local mx, my = gui.MousePos()
+                local px, py = plyModel:LocalToScreen(0, 0)
+                local pw, ph = plyModel:GetSize()
 
-            if mx < ix or mx > (ix + iw) or my < iy or my > (iy + ih) then
-                if IsValid(lootbox_frame) and not lootbox_frame.isClosing then
-                    local lx, ly = lootbox_frame:LocalToScreen(0, 0)
-                    local lw, lh = lootbox_frame:GetSize()
-                    if mx >= lx and mx <= (lx + lw) and my >= ly and my <= (ly + lh) then
-                        return 
-                    end
-                end
-
-                if IsValid(playerinventory_frame) and not playerinventory_frame.isClosing then
-                    local px, py = playerinventory_frame:LocalToScreen(0, 0)
-                    local pw, ph = playerinventory_frame:GetSize()
-                    if mx >= px and mx <= (px + pw) and my >= py and my <= (py + ph) then
-                        return 
-                    end
-                end
+                local in_local_safe = (mx >= px - 150 and mx <= px + pw + 150 and my >= py and my <= py + ph)
                 
-                local _, put_snd = kb.GetSoundClaimOrPut(pnl.WepClass)
-                surface.PlaySound(put_snd)
+                local in_target_safe = false
+                if IsValid(playerinventory_frame) and IsValid(playerinventory_frame.TargetModelContainer) then
+                    local tx, ty = playerinventory_frame.TargetModelContainer:LocalToScreen(0, 0)
+                    local tw, th = playerinventory_frame.TargetModelContainer:GetSize()
+                    if mx >= tx - 150 and mx <= tx + tw + 150 and my >= ty and my <= ty + th then
+                        in_target_safe = true
+                    end
+                end
 
-                if pnl.IsLootboxItem then
-                    net.Start("KB_DropLootboxItem")
-                        net.WriteEntity(pnl.BoxEnt)
-                        net.WriteUInt(pnl.SlotIndex, 8)
-                    net.SendToServer()
+                if not in_local_safe and not in_target_safe then
+                    local _, put_snd = kb.GetSoundClaimOrPut(pnl.ArmorEntClass or "")
+                    surface.PlaySound(put_snd)
+                    pnl.PendingDrop = true
                     
-                    pnl:Remove()
-                    
-                    if IsValid(lootbox_frame) then
-                        lootbox_frame.RemainingItems = (lootbox_frame.RemainingItems or 1) - 1
-                        if lootbox_frame.RemainingItems <= 0 and not pnl.BoxEnt.IsStorage then
-                            timer.Simple(0.1, function() 
-                                if IsValid(lootbox_frame) then
-                                    lootbox_frame:Close()
-                                end
-                            end)
+                    if pnl.IsTargetArmor then
+                        net.Start("KB_DropTargetArmor")
+                        net.WriteEntity(pnl.ArmorOwner_Container)
+                        net.WriteString(pnl.DragArmorID)
+                        net.SendToServer()
+                    else
+                        net.Start("JMod_Inventory")
+                        net.WriteInt(JMod.NETWORK_INDEX.ARMOR_INVENTORY.DROP, 8) 
+                        net.WriteString(pnl.DragArmorID)
+                        net.SendToServer()
+                    end
+                end
+            elseif pnl.WepClass then
+                local mx, my = gui.MousePos()
+                local ix, iy = invPanel:LocalToScreen(0, 0)
+                local iw, ih = invPanel:GetSize()
+
+                if mx < ix or mx > (ix + iw) or my < iy or my > (iy + ih) then
+                    if IsValid(lootbox_frame) and not lootbox_frame.isClosing then
+                        local lx, ly = lootbox_frame:LocalToScreen(0, 0)
+                        local lw, lh = lootbox_frame:GetSize()
+                        if mx >= lx and mx <= (lx + lw) and my >= ly and my <= (ly + lh) then
+                            return 
                         end
                     end
 
-                    if IsValid(playerinventory_frame) then
-                        playerinventory_frame.RemainingItems = (playerinventory_frame.RemainingItems or 1) - 1
-                        if playerinventory_frame.RemainingItems <= 0 then
-                            timer.Simple(0.1, function() 
-                                if IsValid(playerinventory_frame) then playerinventory_frame:Close() end
-                            end)
+                    if IsValid(playerinventory_frame) and not playerinventory_frame.isClosing then
+                        local px, py = playerinventory_frame:LocalToScreen(0, 0)
+                        local pw, ph = playerinventory_frame:GetSize()
+                        if mx >= px and mx <= (px + pw) and my >= py and my <= (py + ph) then
+                            return 
                         end
                     end
-                else
-                    net.Start("KB_DropWeapon_Action")
-                    net.WriteString(pnl.WepClass)
-                    net.SendToServer()
-                     
-                    pnl:SetVisible(false) 
                     
-                    timer.Simple(0.1, function()
-                        if IsValid(invPanel) then invPanel:Refresh() end
-                    end)
+                    local _, put_snd = kb.GetSoundClaimOrPut(pnl.WepClass)
+                    surface.PlaySound(put_snd)
+
+                    if pnl.IsLootboxItem then
+                        net.Start("KB_DropLootboxItem")
+                            net.WriteEntity(pnl.BoxEnt)
+                            net.WriteUInt(pnl.SlotIndex, 8)
+                        net.SendToServer()
+                        
+                        pnl:Remove()
+                        
+                        if IsValid(lootbox_frame) then
+                            lootbox_frame.RemainingItems = (lootbox_frame.RemainingItems or 1) - 1
+                            if lootbox_frame.RemainingItems <= 0 and not pnl.BoxEnt.IsStorage then
+                                timer.Simple(0.1, function() 
+                                    if IsValid(lootbox_frame) then
+                                        lootbox_frame:Close()
+                                    end
+                                end)
+                            end
+                        end
+
+                        if IsValid(playerinventory_frame) then
+                            playerinventory_frame.RemainingItems = (playerinventory_frame.RemainingItems or 1) - 1
+                            if playerinventory_frame.RemainingItems <= 0 then
+                                timer.Simple(0.1, function() 
+                                    if IsValid(playerinventory_frame) then playerinventory_frame:Close() end
+                                end)
+                            end
+                        end
+                    else
+                        net.Start("KB_DropWeapon_Action")
+                        net.WriteString(pnl.WepClass)
+                        net.SendToServer()
+                         
+                        pnl:SetVisible(false) 
+                        
+                        timer.Simple(0.1, function()
+                            if IsValid(invPanel) then invPanel:Refresh() end
+                        end)
+                    end
                 end
             end
         end
@@ -845,13 +942,21 @@ net.Receive("KB_OpenLootBox", function()
                 surface.DrawTexturedRect(0, 0, w, h)
 
                 local wep = weapons.GetStored(self.PendingPut)
-                if wep then
+                
+                if string.StartWith(self.PendingPut, "ent_jack_gmod_ezarmor") then
+                    local iconMat = Material("entities/" .. self.PendingPut .. ".png", "smooth")
+                    if not iconMat:IsError() then
+                        surface.SetDrawColor(255, 255, 255, 255)
+                        surface.SetMaterial(iconMat)
+                        local iconSize = w * 0.7
+                        surface.DrawTexturedRect((w - iconSize) / 2, (h - iconSize) / 2 - 5, iconSize, iconSize)
+                    end
+                elseif wep then
                     local sx, sy = self:LocalToScreen(0, -15)
                     KB_DrawWeaponSelection(wep, sx, sy, w, h, 255)
                 end
                 
-                local printName = (wep and wep.PrintName) and wep.PrintName or language.GetPhrase(self.PendingPut)
-                if printName == self.PendingPut then printName = self.PendingPut end
+                local printName = GetItemPrintName(self.PendingPut, wep)
                 
                 draw.SimpleText(printName, "DermaDefault", w / 2, h - 6, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_BOTTOM)
                 
@@ -861,10 +966,10 @@ net.Receive("KB_OpenLootBox", function()
         end
 
         local function SetupReceiver()
-            slotPanel:Receiver("Weapon_Item", function(self_pnl, panels, isDropped, drop_index, x, y)
+            slotPanel:Receiver("KB_Item", function(self_pnl, panels, isDropped, drop_index, x, y)
                 if isDropped then
                     local pnl = panels[1]
-                    if not IsValid(pnl) or not pnl.WepClass then return end
+                    if not IsValid(pnl) then return end
 
                     if pnl.IsLootboxItem then
                         local old_parent = pnl:GetParent()
@@ -906,27 +1011,58 @@ net.Receive("KB_OpenLootBox", function()
                         return
                     end
 
-                    local is_empty = true
-                    for _, child in ipairs(self_pnl:GetChildren()) do
-                        if child:GetName() == "DButton" and child:IsVisible() then
-                            is_empty = false
-                            break
+                    if pnl.DragArmorID then
+                        local is_empty = true
+                        for _, child in ipairs(self_pnl:GetChildren()) do
+                            if child:GetName() == "DButton" and child:IsVisible() then
+                                is_empty = false
+                                break
+                            end
                         end
+
+                        if not is_empty or self_pnl.PendingPut then return end
+
+                        net.Start("KB_PutArmorItem")
+                            net.WriteEntity(box_ent)
+                            net.WriteUInt(self_pnl.SlotIndex, 8) 
+                            net.WriteString(pnl.DragArmorID)
+                            net.WriteBool(pnl.IsTargetArmor or false)
+                            if pnl.IsTargetArmor then
+                                net.WriteEntity(pnl.ArmorOwner_Container)
+                            end
+                        net.SendToServer()
+                        
+                        local _, put_snd = kb.GetSoundClaimOrPut(pnl.ArmorEntClass)
+                        surface.PlaySound(put_snd)
+                        
+                        pnl.PendingDrop = true
+                        self_pnl.PendingPut = pnl.ArmorEntClass
+                        return
                     end
 
-                    if not is_empty or self_pnl.PendingPut then return end
+                    if pnl.WepClass then
+                        local is_empty = true
+                        for _, child in ipairs(self_pnl:GetChildren()) do
+                            if child:GetName() == "DButton" and child:IsVisible() then
+                                is_empty = false
+                                break
+                            end
+                        end
 
-                    net.Start("KB_PutItem")
-                        net.WriteEntity(box_ent)
-                        net.WriteUInt(self_pnl.SlotIndex, 8) 
-                        net.WriteString(pnl.WepClass)
-                    net.SendToServer()
-                    
-                    local _, put_snd = kb.GetSoundClaimOrPut(pnl.WepClass)
-                    surface.PlaySound(put_snd)
-                    
-                    pnl:SetVisible(false)
-                    self_pnl.PendingPut = pnl.WepClass
+                        if not is_empty or self_pnl.PendingPut then return end
+
+                        net.Start("KB_PutItem")
+                            net.WriteEntity(box_ent)
+                            net.WriteUInt(self_pnl.SlotIndex, 8) 
+                            net.WriteString(pnl.WepClass)
+                        net.SendToServer()
+                        
+                        local _, put_snd = kb.GetSoundClaimOrPut(pnl.WepClass)
+                        surface.PlaySound(put_snd)
+                        
+                        pnl:SetVisible(false)
+                        self_pnl.PendingPut = pnl.WepClass
+                    end
                 end
             end)
         end
@@ -940,11 +1076,7 @@ net.Receive("KB_OpenLootBox", function()
             btn.BoxEnt = box_ent
 
             local wep = weapons.GetStored(item.class)
-            local printName = (wep and wep.PrintName) and wep.PrintName or language.GetPhrase(item.class)
-            
-            if printName == item.class then
-                printName = item.class 
-            end
+            local printName = GetItemPrintName(item.class, wep)
 
             local rarityColor = kb.GetItemRarityColor(item.class)
             
@@ -952,7 +1084,7 @@ net.Receive("KB_OpenLootBox", function()
 
             btn.WepClass = item.class
             btn.IsLootboxItem = true
-            btn:Droppable("Weapon_Item")
+            btn:Droppable("KB_Item")
 
             btn.OnStartDragging = function(self)
                 self:SetPaintedManually(true)
@@ -969,7 +1101,15 @@ net.Receive("KB_OpenLootBox", function()
                 surface.SetMaterial(gradient_down)
                 surface.DrawTexturedRect(0, 0, w, h)
 
-                if wep then
+                if string.StartWith(self.WepClass, "ent_jack_gmod_ezarmor") then
+                    local iconMat = Material("entities/" .. self.WepClass .. ".png", "smooth")
+                    if not iconMat:IsError() then
+                        surface.SetDrawColor(255, 255, 255, 255)
+                        surface.SetMaterial(iconMat)
+                        local iconSize = w * 0.7
+                        surface.DrawTexturedRect((w - iconSize) / 2, (h - iconSize) / 2 - 5, iconSize, iconSize)
+                    end
+                elseif wep then
                     local sx, sy = self:LocalToScreen(0, -15)
                     KB_DrawWeaponSelection(wep, sx, sy, w, h, 255)
                 end
@@ -993,7 +1133,7 @@ net.Receive("KB_OpenLootBox", function()
                     net.WriteUInt(btn.SlotIndex, 8) 
                 net.SendToServer()
 
-                if not LocalPlayer():HasWeapon(item.class) then
+                if not string.StartWith(item.class, "ent_jack_gmod_ezarmor") and not LocalPlayer():HasWeapon(item.class) then
                     if IsValid(main_inventory) and IsValid(main_inventory.invPanel) then
                         local dummy = vgui.Create("Panel", main_inventory.invPanel) 
                         dummy.PendingClaim = item.class
@@ -1006,7 +1146,7 @@ net.Receive("KB_OpenLootBox", function()
                     end
                 end
 
-                if not LocalPlayer():HasWeapon(item.class) then
+                if string.StartWith(item.class, "ent_jack_gmod_ezarmor") or not LocalPlayer():HasWeapon(item.class) then
                     btn:Remove()
                     item.claimed = true 
                     lootbox_frame.RemainingItems = lootbox_frame.RemainingItems - 1
@@ -1171,6 +1311,8 @@ net.Receive("KB_OpenPlayerInventory", function()
             local modelX, modelY = model_panel:GetPos()
             local modelW, modelH = model_panel:GetSize()
             
+            parent_panel.ArmorSlotPanels = parent_panel.ArmorSlotPanels or {}
+
             for side, rows in pairs(kb.PositionArmorSlots) do
                 for rowIndex, slots in pairs(rows) do
                     for colIndex, slotName in ipairs(slots) do
@@ -1187,6 +1329,8 @@ net.Receive("KB_OpenPlayerInventory", function()
                         slotPanel:SetSize(slotSize, slotSize)
                         slotPanel:SetPos(posX, posY)
                         
+                        parent_panel.ArmorSlotPanels[slotName] = slotPanel
+
                         slotPanel.Paint = function(s, w, h)
                             draw.RoundedBox(0, 0, 0, w, h, Color(39, 39, 39, 100))
                             surface.SetDrawColor(73, 73, 73)
@@ -1197,20 +1341,56 @@ net.Receive("KB_OpenPlayerInventory", function()
                             surface.DrawLine(w - 1, 0, w - 1, h)
                         end
 
-                        slotPanel:Receiver("Armor_Item", function(self_pnl, panels, isDropped, index, x, y)
+                        slotPanel:Receiver("KB_Item", function(self_pnl, panels, isDropped, index, x, y)
                             if isDropped then
                                 local pnl = panels[1]
-                                if IsValid(pnl) and pnl.DragArmorID and not pnl.IsTargetArmor then
+                                if not IsValid(pnl) then return end
+                                
+                                if pnl.DragArmorID and not pnl.IsTargetArmor then
                                     local _, put_snd = kb.GetSoundClaimOrPut(pnl.ArmorEntClass or "")
                                     surface.PlaySound(put_snd)
                                     pnl.PendingDrop = true
                                     
-                                    slotPanel.PendingEquip = pnl.ArmorEntClass
+                                    local tSlots = GetArmorSlotNames(pnl.ArmorEntClass)
+                                    for _, sName in ipairs(tSlots) do
+                                        if parent_panel.ArmorSlotPanels[sName] then
+                                            parent_panel.ArmorSlotPanels[sName].PendingEquip = pnl.ArmorEntClass
+                                        end
+                                    end
                                     
                                     net.Start("KB_TransferArmorToTarget")
                                     net.WriteEntity(target_ply) 
                                     net.WriteString(pnl.DragArmorID)
                                     net.SendToServer()
+                                    
+                                elseif pnl.IsLootboxItem and pnl.WepClass and string.StartWith(pnl.WepClass, "ent_jack_gmod_ezarmor") then
+                                    local _, put_snd = kb.GetSoundClaimOrPut(pnl.WepClass)
+                                    surface.PlaySound(put_snd)
+                                    
+                                    pnl.PendingDrop = true
+                                    pnl:SetVisible(false) 
+                                    
+                                    local tSlots = GetArmorSlotNames(pnl.WepClass)
+                                    for _, sName in ipairs(tSlots) do
+                                        if parent_panel.ArmorSlotPanels[sName] then
+                                            parent_panel.ArmorSlotPanels[sName].PendingEquip = pnl.WepClass
+                                        end
+                                    end
+                                    
+                                    net.Start("KB_ClaimLoot")
+                                        net.WriteEntity(pnl.BoxEnt)
+                                        net.WriteUInt(pnl.SlotIndex, 8)
+                                    net.SendToServer()
+                                    
+                                    local parent_frame = pnl.BoxEnt:GetClass() == "prop_ragdoll" and playerinventory_frame or lootbox_frame
+                                    if IsValid(parent_frame) then
+                                        parent_frame.RemainingItems = (parent_frame.RemainingItems or 1) - 1
+                                        if parent_frame.RemainingItems <= 0 and not pnl.BoxEnt.IsStorage then
+                                            timer.Simple(0.1, function()
+                                                if IsValid(parent_frame) then parent_frame:Close() end
+                                            end)
+                                        end
+                                    end
                                 end
                             end
                         end)
@@ -1221,7 +1401,7 @@ net.Receive("KB_OpenPlayerInventory", function()
                         
                         btn.IsTargetArmor = true
                         btn.ArmorOwner_Container = target_ply 
-                        btn:Droppable("Armor_Item")
+                        btn:Droppable("KB_Item")
 
                         btn.OnStartDragging = function(self)
                             if not IsValid(target_ply) or not target_ply.EZarmor then return false end
@@ -1422,13 +1602,21 @@ net.Receive("KB_OpenPlayerInventory", function()
                 surface.DrawTexturedRect(0, 0, w, h)
 
                 local wep = weapons.GetStored(self.PendingPut)
-                if wep then
+                
+                if string.StartWith(self.PendingPut, "ent_jack_gmod_ezarmor") then
+                    local iconMat = Material("entities/" .. self.PendingPut .. ".png", "smooth")
+                    if not iconMat:IsError() then
+                        surface.SetDrawColor(255, 255, 255, 255)
+                        surface.SetMaterial(iconMat)
+                        local iconSize = w * 0.7
+                        surface.DrawTexturedRect((w - iconSize) / 2, (h - iconSize) / 2 - 5, iconSize, iconSize)
+                    end
+                elseif wep then
                     local sx, sy = self:LocalToScreen(0, -15)
                     KB_DrawWeaponSelection(wep, sx, sy, w, h, 255)
                 end
                 
-                local printName = (wep and wep.PrintName) and wep.PrintName or language.GetPhrase(self.PendingPut)
-                if printName == self.PendingPut then printName = self.PendingPut end
+                local printName = GetItemPrintName(self.PendingPut, wep)
                 
                 draw.SimpleText(printName, "DermaDefault", w / 2, h - 6, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_BOTTOM)
                 
@@ -1438,10 +1626,10 @@ net.Receive("KB_OpenPlayerInventory", function()
         end
 
         local function SetupReceiver()
-            slotPanel:Receiver("Weapon_Item", function(self_pnl, panels, isDropped, drop_index, x, y)
+            slotPanel:Receiver("KB_Item", function(self_pnl, panels, isDropped, drop_index, x, y)
                 if isDropped then
                     local pnl = panels[1]
-                    if not IsValid(pnl) or not pnl.WepClass then return end
+                    if not IsValid(pnl) then return end
 
                     if pnl.IsLootboxItem then
                         local old_parent = pnl:GetParent()
@@ -1483,27 +1671,58 @@ net.Receive("KB_OpenPlayerInventory", function()
                         return
                     end
 
-                    local is_empty = true
-                    for _, child in ipairs(self_pnl:GetChildren()) do
-                        if child:GetName() == "DButton" and child:IsVisible() then
-                            is_empty = false
-                            break
+                    if pnl.DragArmorID then
+                        --[[local is_empty = true
+                        for _, child in ipairs(self_pnl:GetChildren()) do
+                            if child:GetName() == "DButton" and child:IsVisible() then
+                                is_empty = false
+                                break
+                            end
                         end
+
+                        if not is_empty or self_pnl.PendingPut then return end
+
+                        net.Start("KB_PutArmorItem")
+                            net.WriteEntity(player_ent)
+                            net.WriteUInt(self_pnl.SlotIndex, 8) 
+                            net.WriteString(pnl.DragArmorID)
+                            net.WriteBool(pnl.IsTargetArmor or false)
+                            if pnl.IsTargetArmor then
+                                net.WriteEntity(pnl.ArmorOwner_Container)
+                            end
+                        net.SendToServer()
+                        
+                        local _, put_snd = kb.GetSoundClaimOrPut(pnl.ArmorEntClass)
+                        surface.PlaySound(put_snd)
+                        
+                        pnl.PendingDrop = true
+                        self_pnl.PendingPut = pnl.ArmorEntClass--]]
+                        return
                     end
 
-                    if not is_empty or self_pnl.PendingPut then return end
+                    if pnl.WepClass then
+                        local is_empty = true
+                        for _, child in ipairs(self_pnl:GetChildren()) do
+                            if child:GetName() == "DButton" and child:IsVisible() then
+                                is_empty = false
+                                break
+                            end
+                        end
 
-                    net.Start("KB_PutItem")
-                        net.WriteEntity(player_ent)
-                        net.WriteUInt(self_pnl.SlotIndex, 8) 
-                        net.WriteString(pnl.WepClass)
-                    net.SendToServer()
-                    
-                    local _, put_snd = kb.GetSoundClaimOrPut(pnl.WepClass)
-                    surface.PlaySound(put_snd)
-                    
-                    pnl:SetVisible(false)
-                    self_pnl.PendingPut = pnl.WepClass
+                        if not is_empty or self_pnl.PendingPut then return end
+
+                        net.Start("KB_PutItem")
+                            net.WriteEntity(player_ent)
+                            net.WriteUInt(self_pnl.SlotIndex, 8) 
+                            net.WriteString(pnl.WepClass)
+                        net.SendToServer()
+                        
+                        local _, put_snd = kb.GetSoundClaimOrPut(pnl.WepClass)
+                        surface.PlaySound(put_snd)
+                        
+                        pnl:SetVisible(false)
+                        self_pnl.PendingPut = pnl.WepClass
+                    end
                 end
             end)
         end
@@ -1517,19 +1736,14 @@ net.Receive("KB_OpenPlayerInventory", function()
             btn.BoxEnt = player_ent
 
             local wep = weapons.GetStored(item.class)
-            local printName = (wep and wep.PrintName) and wep.PrintName or language.GetPhrase(item.class)
-            
-            if printName == item.class then
-                printName = item.class 
-            end
-
+            local printName = GetItemPrintName(item.class, wep)
             local rarityColor = kb.GetItemRarityColor(item.class)
             
             btn:SetText("")
 
             btn.WepClass = item.class
             btn.IsLootboxItem = true
-            btn:Droppable("Weapon_Item")
+            btn:Droppable("KB_Item")
 
             btn.OnStartDragging = function(self)
                 self:SetPaintedManually(true)
@@ -1546,7 +1760,15 @@ net.Receive("KB_OpenPlayerInventory", function()
                 surface.SetMaterial(gradient_down)
                 surface.DrawTexturedRect(0, 0, w, h)
 
-                if wep then
+                if string.StartWith(self.WepClass, "ent_jack_gmod_ezarmor") then
+                    local iconMat = Material("entities/" .. self.WepClass .. ".png", "smooth")
+                    if not iconMat:IsError() then
+                        surface.SetDrawColor(255, 255, 255, 255)
+                        surface.SetMaterial(iconMat)
+                        local iconSize = w * 0.7
+                        surface.DrawTexturedRect((w - iconSize) / 2, (h - iconSize) / 2 - 5, iconSize, iconSize)
+                    end
+                elseif wep then
                     local sx, sy = self:LocalToScreen(0, -15)
                     KB_DrawWeaponSelection(wep, sx, sy, w, h, 255)
                 end
@@ -1570,7 +1792,7 @@ net.Receive("KB_OpenPlayerInventory", function()
                     net.WriteUInt(btn.SlotIndex, 8) 
                 net.SendToServer()
 
-                if not LocalPlayer():HasWeapon(item.class) then
+                if not string.StartWith(item.class, "ent_jack_gmod_ezarmor") and not LocalPlayer():HasWeapon(item.class) then
                     if IsValid(main_inventory) and IsValid(main_inventory.invPanel) then
                         local dummy = vgui.Create("Panel", main_inventory.invPanel) 
                         dummy.PendingClaim = item.class
@@ -1583,7 +1805,7 @@ net.Receive("KB_OpenPlayerInventory", function()
                     end
                 end
 
-                if not LocalPlayer():HasWeapon(item.class) then
+                if string.StartWith(item.class, "ent_jack_gmod_ezarmor") or not LocalPlayer():HasWeapon(item.class) then
                     btn:Remove()
                     item.claimed = true 
                     

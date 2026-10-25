@@ -5,6 +5,7 @@ util.AddNetworkString("KB_OpenLootBox")
 
 util.AddNetworkString("KB_ClaimLoot")
 util.AddNetworkString("KB_PutItem")
+util.AddNetworkString("KB_PutArmorItem")
 
 util.AddNetworkString("KB_DropWeapon_Action")
 util.AddNetworkString("KB_DropLootboxItem")
@@ -106,8 +107,38 @@ net.Receive("KB_ClaimLoot", function(len, ply)
         if item.claimed then return end
 
         local is_food = string.StartWith(item.class, "food_")
+        local is_armor = string.StartWith(item.class, "ent_jack_gmod_ezarmor")
         
-        if ply:HasWeapon(item.class) then
+        if is_armor then
+            item.claimed = true
+
+            local armor_ent = ents.Create(item.class)
+            if IsValid(armor_ent) then
+                armor_ent:SetPos(ply:GetPos())
+                armor_ent:Spawn()
+                armor_ent:Activate()
+                
+                if JMod and JMod.EZ_Equip_Armor then
+                    JMod.EZ_Equip_Armor(ply, armor_ent)
+                else
+                    armor_ent:Remove() 
+                end
+            end
+
+            if IsValid(box_ent.FakePlayer) then
+                if box_ent.FakePlayer.InventorySlotMemory then
+                    for k, v in pairs(box_ent.FakePlayer.InventorySlotMemory) do
+                        if v == item.class then
+                            box_ent.FakePlayer.InventorySlotMemory[k] = nil
+                        end
+                    end
+                end
+                net.Start("KB_SyncInventorySlots")
+                net.WriteTable(box_ent.FakePlayer.InventorySlotMemory or {})
+                net.Send(box_ent.FakePlayer)
+            end
+
+        elseif ply:HasWeapon(item.class) then
             if not item.ammo_taken and not is_food then
                 local wep = ply:GetWeapon(item.class)
                 if IsValid(wep) then
@@ -264,6 +295,69 @@ net.Receive("KB_PutItem", function(len, ply)
         end
     end
 end)
+
+net.Receive("KB_PutArmorItem", function(len, ply)
+    local box_ent = net.ReadEntity()
+    local item_index = net.ReadUInt(8)
+    local armorID = net.ReadString()
+    local is_target = net.ReadBool()
+    local target_ent = is_target and net.ReadEntity() or nil
+
+    if not IsValid(ply) or not ply:IsPlayer() then return end
+    if not IsValid(box_ent) then return end
+    if ply:GetPos():DistToSqr(box_ent:GetPos()) > 40000 then return end
+    
+    box_ent.Inventory = box_ent.Inventory or {}
+    local item = box_ent.Inventory[item_index]
+    if item and not item.claimed then return end 
+
+    local actual_target = ply
+    if is_target and IsValid(target_ent) then
+        actual_target = target_ent
+        if target_ent:GetClass() == "prop_ragdoll" and IsValid(target_ent.FakePlayer) then
+            actual_target = target_ent.FakePlayer
+        end
+    end
+    
+    if actual_target.EZarmor and actual_target.EZarmor.items and actual_target.EZarmor.items[armorID] then
+        local dropped_ent = JMod.RemoveArmorByID(actual_target, armorID, false)
+        if IsValid(dropped_ent) then
+            local wep_class = dropped_ent:GetClass()
+            dropped_ent:Remove() 
+            
+            box_ent.Inventory[item_index] = {
+                class = wep_class,
+                claimed = false,
+                ammo_taken = true,
+                clip1 = 0,
+                clip2 = 0
+            }
+            
+            local viewers = {}
+            for _, p in player.Iterator() do
+                if p:GetPos():DistToSqr(box_ent:GetPos()) <= 40000 then
+                    table.insert(viewers, p)
+                end
+            end
+
+            if box_ent:GetClass() == "prop_ragdoll" then
+                net.Start("KB_OpenPlayerInventory")
+                net.WriteEntity(box_ent)
+                net.WriteTable(box_ent.Inventory)
+                net.WriteBool(true)
+                net.WriteTable((IsValid(box_ent.FakePlayer) and box_ent.FakePlayer.EZarmor) and box_ent.FakePlayer.EZarmor or {})
+                net.Send(viewers)
+            else
+                net.Start("KB_OpenLootBox")
+                net.WriteEntity(box_ent)
+                net.WriteTable(box_ent.Inventory)
+                net.WriteBool(true)
+                net.Send(viewers)
+            end
+        end
+    end
+end)
+
 
 net.Receive("KB_SwapLootboxItem", function(len, ply)
     local box_ent = net.ReadEntity()

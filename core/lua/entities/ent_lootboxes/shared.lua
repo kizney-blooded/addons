@@ -10,7 +10,8 @@ kb.Item_in_Lootboxes = {
     slots = 5,
     { class = "kb_rif_ak47", chance = 50 },
     { class = "kb_pist_fiveseven", chance = 50 },
-    { class = "weapon_frag", chance = 5 }
+    { class = "weapon_frag", chance = 5 },
+    { class = "ent_jack_gmod_ezarmor_eaimbss", chance = 60},
 }
 
 ENT.BoxModel = "models/sarma_crates/static_crate_40.mdl"
