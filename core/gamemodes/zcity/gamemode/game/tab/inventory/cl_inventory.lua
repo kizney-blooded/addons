@@ -114,12 +114,17 @@ function Frame_Inventory()
 
     kb.PositionArmorSlots = {
         ["left_side"] = {
-            [1] = {"head", "head"},
-            [2] = {"chest", "chest"}
+            [1] = {"head", "eyes"},
+            [2] = {"mouthnose", "leftshoulder"},
+            [3] = {"leftforearm", "leftthigh"},
+            [4] = {"leftcalf"},
         },
         ["right_side"] = {
-            [1] = {"eyes", "mouthnose"},
-            [2] = {"pelvis", "back"}
+            [1] = {"chest", "back"},
+            [2] = {"waist", "pelvis"},
+            [3] = {"rightshoulder", "rightforearm"},
+            [4] = {"rightthigh","rightcalf"},
+
         },
     }
 
