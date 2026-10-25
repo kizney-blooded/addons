@@ -29,7 +29,10 @@ SWEP.DrawAmmo = true
 
 SWEP.Base = "weapon_base"
 
-SWEP.DrawWeaponSelection = DrawWeaponSelection
+function SWEP:DrawWeaponSelection(x, y, wide, tall, alpha)
+    KB_DrawWeaponSelection(self, x, y, wide, tall, alpha)
+end
+
 SWEP.OverridePaintIcon = OverridePaintIcon
 
 SWEP.Primary.Damage = 25

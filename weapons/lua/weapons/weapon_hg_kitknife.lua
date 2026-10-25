@@ -48,3 +48,5 @@ SWEP.FlashHitSound = "snd_jack_hmcd_slash.wav"
 SWEP.ShouldDecal = true
 SWEP.HoldTypeWep = "knife"
 SWEP.DamageType = DMG_SLASH
+
+SWEP.IconPos = { Pos = Vector(22.45, 3, -4), Ang = Angle(-100.00, 0.00, -2.45), FOV = 60.69 }

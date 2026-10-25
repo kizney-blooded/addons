@@ -48,3 +48,5 @@ SWEP.FlashHitSound = "weapons/melee/flesh_impact_blunt_03.wav"
 SWEP.ShouldDecal = false
 SWEP.HoldTypeWep = "melee2"
 SWEP.DamageType = DMG_CLUB
+
+SWEP.IconPos = { Pos = Vector(22.45, 5.5, -5), Ang = Angle(-100.00, 0.00, -2.45), FOV = 95.69 }

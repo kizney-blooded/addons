@@ -1,6 +1,6 @@
 SWEP.Base = "weapon_hg_melee_base"
 
-SWEP.PrintName = "Shovel"
+SWEP.PrintName = "Crowbar"
 SWEP.Category = "[HG] Melee"
 SWEP.Instructions = ""
 
@@ -9,8 +9,8 @@ SWEP.AdminSpawnable= true
 SWEP.AdminOnly = false
 
 SWEP.ViewModelFOV = 60
-SWEP.ViewModel = "models/weapons/me_spade/w_me_spade.mdl"
-SWEP.WorldModel = "models/weapons/me_spade/w_me_spade.mdl"
+SWEP.ViewModel = "models/weapons/me_crowbar/w_me_crowbar.mdl"
+SWEP.WorldModel = "models/weapons/me_crowbar/w_me_crowbar.mdl"
 SWEP.ViewModelFlip = false
 
 SWEP.AutoSwitchTo = false
@@ -29,13 +29,13 @@ SWEP.DrawCrosshair = false
 
 SWEP.DrawAmmo = true
 
-SWEP.Primary.Damage = 25
+SWEP.Primary.Damage = 40
 SWEP.Primary.Ammo = "none"
 SWEP.Primary.DefaultClip = -1
 SWEP.Primary.Automatic = true
 SWEP.Primary.Recoil = 0.5
-SWEP.Primary.Delay = 1.1
-SWEP.Primary.Force = 180
+SWEP.Primary.Delay = 1.3
+SWEP.Primary.Force = 70
 
 SWEP.Secondary.ClipSize = 0
 SWEP.Secondary.DefaultClip = 0
@@ -43,8 +43,10 @@ SWEP.Secondary.Automatic = false
 SWEP.Secondary.Ammo = "none"
 
 SWEP.DrawSound = "weapons/melee/holster_in_light.wav"
-SWEP.HitSound = "physics/metal/metal_sheet_impact_hard7.wav"
-SWEP.FlashHitSound = "snd_jack_hmcd_axehit.wav"
+SWEP.HitSound = "snd_jack_hmcd_knifehit.wav"
+SWEP.FlashHitSound = "weapons/melee/flesh_impact_blunt_04.wav"
 SWEP.ShouldDecal = true
-SWEP.HoldTypeWep = "melee2"
+SWEP.HoldTypeWep = "melee"
 SWEP.DamageType = DMG_SLASH
+
+SWEP.IconPos = { Pos = Vector(22.45, 3, -5), Ang = Angle(-100.00, 0.00, -2.45), FOV = 80.69 }
