@@ -578,7 +578,7 @@ function Frame_Inventory()
 
                     if IsValid(playerinventory_frame) then
                         playerinventory_frame.RemainingItems = (playerinventory_frame.RemainingItems or 1) - 1
-                        if playerinventory_frame.RemainingItems <= 0 and not pnl.BoxEnt.IsStorage then
+                        if playerinventory_frame.RemainingItems <= 0 then
                             timer.Simple(0.1, function() 
                                 if IsValid(playerinventory_frame) then playerinventory_frame:Close() end
                             end)
@@ -959,7 +959,7 @@ net.Receive("KB_OpenLootBox", function()
 
                     if lootbox_frame.RemainingItems <= 0 then
                         timer.Simple(0.1, function() 
-                            if IsValid(lootbox_frame) then
+                            if IsValid(lootbox_frame) and not box_ent.IsStorage then
                                 lootbox_frame:Close()
                             end
                         end)
