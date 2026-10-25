@@ -19,153 +19,153 @@ function JMod.CopyAllArmorOffsets()
 end
 
 function JMod.ArmorPlayerModelDraw(ply, nomerge)
-	if ply.EZarmor then
-		if not ply.EZarmorModels then
-			ply.EZarmorModels = {}
-		end
+	if not IsValid(ply) or not ply.EZarmor then return end
+	if not ply.EZarmorModels then ply.EZarmorModels = {} end
 
-		local Time = CurTime()
+	local isClient = ply == LocalPlayer() and GetViewEntity() == ply
 
-		local isClient = ply == LocalPlayer() and GetViewEntity() == ply
+	local targetEnt = ply
+	local fakeRag = ply:GetNWEntity("FakeRagdoll")
+	if IsValid(fakeRag) then
+		targetEnt = fakeRag
+	end
 
-		if not JMod.ArmorTableOffsetCache or table.IsEmpty(JMod.ArmorTableOffsetCache) then
-			JMod.CopyAllArmorOffsets()
-		end
+	if not JMod.ArmorTableOffsetCache or table.IsEmpty(JMod.ArmorTableOffsetCache) then
+		JMod.CopyAllArmorOffsets()
+	end
 
-		local plyMdl = ply:GetModel()
+	local plyMdl = targetEnt:GetModel() or ply:GetModel()
 
-		if not JMod.ArmorTableOffsetCache[plyMdl] then
-			JMod.CopyArmorTableForModel(plyMdl)
-		end
+	if not JMod.ArmorTableOffsetCache[plyMdl] then
+		JMod.CopyArmorTableForModel(plyMdl)
+	end
 
-		local plyboneedit = {}
+	local plyboneedit = {}
 
-		for id, armorData in pairs(ply.EZarmor.items) do
-			local ArmorInfo = JMod.ArmorTableOffsetCache[plyMdl] and JMod.ArmorTableOffsetCache[plyMdl][armorData.name] or JMod.ArmorTable[armorData.name]
+	for id, armorData in pairs(ply.EZarmor.items) do
+		local ArmorInfo = JMod.ArmorTableOffsetCache[plyMdl] and JMod.ArmorTableOffsetCache[plyMdl][armorData.name] or JMod.ArmorTable[armorData.name]
 
-			if not ArmorInfo then continue end
-			if armorData.tgl and ArmorInfo.tgl then
-				ArmorInfo = table.Merge(table.FullCopy(ArmorInfo), ArmorInfo.tgl)
-
-				-- for some reason table.Merge doesn't copy empty tables
-				for k, v in pairs(ArmorInfo.tgl) do
-					if type(v) == "table" then
-						if #table.GetKeys(v) == 0 then
-							ArmorInfo[k] = {}
-						end
-					end
+		if not ArmorInfo then continue end
+		if armorData.tgl and ArmorInfo.tgl then
+			ArmorInfo = table.Merge(table.FullCopy(ArmorInfo), ArmorInfo.tgl)
+			for k, v in pairs(ArmorInfo.tgl) do
+				if type(v) == "table" and #table.GetKeys(v) == 0 then
+					ArmorInfo[k] = {}
 				end
 			end
+		end
 
-			if isClient and ArmorInfo.bon == "ValveBiped.Bip01_Head1" then 
-				continue 
-			end
+		if isClient and ArmorInfo.bon == "ValveBiped.Bip01_Head1" and targetEnt == ply then 
+			continue 
+		end
 
-			if IsValid(ply.EZarmorModels[id]) then
-				local Mdl = ply.EZarmorModels[id]
-				local MdlName = string.lower(Mdl:GetModel())
+		if IsValid(ply.EZarmorModels[id]) then
+			local Mdl = ply.EZarmorModels[id]
+			local MdlName = string.lower(Mdl:GetModel())
 
-				if MdlName == ArmorInfo.mdl and ArmorInfo.bon then
-					-- render it
-					local Index = ply:LookupBone(ArmorInfo.bon)
-
-					if Index then
-						local Matric = ply:GetBoneMatrix(Index)
-						if Matric then
-							local Pos, Ang = Matric:GetTranslation(), Matric:GetAngles()
-
-							if Pos and Ang then
-								if not(ArmorInfo.merge) or nomerge then
-									local Right, Forward, Up = Ang:Right(), Ang:Forward(), Ang:Up()
-									Pos = Pos + Right * ArmorInfo.pos.x + Forward * ArmorInfo.pos.y + Up * ArmorInfo.pos.z
-									Ang:RotateAroundAxis(Right, ArmorInfo.ang.p)
-									Ang:RotateAroundAxis(Up, ArmorInfo.ang.y)
-									Ang:RotateAroundAxis(Forward, ArmorInfo.ang.r)
-									Mdl:SetRenderOrigin(Pos)
-									Mdl:SetRenderAngles(Ang)
-									local Mat = Matrix()
-									Mat:Scale(ArmorInfo.siz)
-									Mdl:EnableMatrix("RenderMultiply", Mat)
-								else
-									Mdl:SetupBones()
-									for i = 0, Mdl:GetBoneCount() do
-										Mdl:ManipulateBoneScale(i, ArmorInfo.siz)
-									end
-								end
-								if ArmorInfo.bdg then
-									for k, v in pairs(ArmorInfo.bdg) do
-										Mdl:SetBodygroup(k, v)
-									end
-								end
-
-								if ArmorInfo.skin then
-									Mdl:SetSkin(ArmorInfo.skin)
-								end
-
-								local OldR, OldG, OldB = render.GetColorModulation()
-								local Colr = armorData.col
-								if (not(ArmorInfo.merge) or nomerge) then
-									render.SetColorModulation(Colr.r / 255, Colr.g / 255, Colr.b / 255)
-								else
-									Mdl:SetColor(Color(Colr.r, Colr.g, Colr.b))
-								end
-
-								local NoDraw = hook.Run("JMod_ArmorModelDraw", ply, Mdl, armorData, ArmorInfo)
-
-								if not(NoDraw) and (not(ArmorInfo.merge) or nomerge) then
-									Mdl:DrawModel()
-								end
-								render.SetColorModulation(OldR, OldG, OldB)
-							end
-						end
-
-						if ArmorInfo.bonsiz then
-							ply.EZarmorboneedited = true
-							plyboneedit[Index] = ArmorInfo.bonsiz
-						end
-					end
-				else
-					-- remove it
-					ply.EZarmorModels[id]:Remove()
-					ply.EZarmorModels[id] = nil
-				end
-			else
-				-- create it
-				local Mdl = ClientsideModel(ArmorInfo.mdl)
-				Mdl:SetModel(ArmorInfo.mdl) -- Garrry!
-				Mdl:SetMaterial(ArmorInfo.mat or "")
-				Mdl:SetMoveType(MOVETYPE_NONE)
+			if Mdl.EZArmor_CurrentParent ~= targetEnt then
 				if ArmorInfo.merge and not(nomerge) then
-					Mdl:SetParent(ply, 0)
+					Mdl:SetParent(targetEnt, 0)
 					Mdl:AddEffects(EF_BONEMERGE)
 					Mdl:AddEffects(EF_BONEMERGE_FASTCULL)
-					--Mdl:SetPredictable(true)
-					--Mdl:FollowBone(ply, 0)
 				else
-					Mdl:SetPos(ply:GetPos())
-					Mdl:SetParent(ply)
-					Mdl:SetNoDraw(true)
+					Mdl:SetParent(targetEnt)
 				end
-				ply.EZarmorModels[id] = Mdl
+				Mdl.EZArmor_CurrentParent = targetEnt
+			end
+
+			if MdlName == ArmorInfo.mdl and ArmorInfo.bon then
+				local Index = targetEnt:LookupBone(ArmorInfo.bon)
+
+				if Index then
+					local Matric = targetEnt:GetBoneMatrix(Index)
+					if Matric then
+						local Pos, Ang = Matric:GetTranslation(), Matric:GetAngles()
+
+						if Pos and Ang then
+							if not(ArmorInfo.merge) or nomerge then
+								local Right, Forward, Up = Ang:Right(), Ang:Forward(), Ang:Up()
+								Pos = Pos + Right * ArmorInfo.pos.x + Forward * ArmorInfo.pos.y + Up * ArmorInfo.pos.z
+								Ang:RotateAroundAxis(Right, ArmorInfo.ang.p)
+								Ang:RotateAroundAxis(Up, ArmorInfo.ang.y)
+								Ang:RotateAroundAxis(Forward, ArmorInfo.ang.r)
+								Mdl:SetRenderOrigin(Pos)
+								Mdl:SetRenderAngles(Ang)
+								local Mat = Matrix()
+								Mat:Scale(ArmorInfo.siz)
+								Mdl:EnableMatrix("RenderMultiply", Mat)
+							else
+								Mdl:SetupBones()
+								for i = 0, Mdl:GetBoneCount() do
+									Mdl:ManipulateBoneScale(i, ArmorInfo.siz)
+								end
+							end
+							if ArmorInfo.bdg then
+								for k, v in pairs(ArmorInfo.bdg) do
+									Mdl:SetBodygroup(k, v)
+								end
+							end
+
+							if ArmorInfo.skin then
+								Mdl:SetSkin(ArmorInfo.skin)
+							end
+
+							local OldR, OldG, OldB = render.GetColorModulation()
+							local Colr = armorData.col
+							if (not(ArmorInfo.merge) or nomerge) then
+								render.SetColorModulation(Colr.r / 255, Colr.g / 255, Colr.b / 255)
+							else
+								Mdl:SetColor(Color(Colr.r, Colr.g, Colr.b))
+							end
+
+							local NoDraw = hook.Run("JMod_ArmorModelDraw", ply, Mdl, armorData, ArmorInfo)
+
+							if not(NoDraw) and (not(ArmorInfo.merge) or nomerge) then
+								Mdl:DrawModel()
+							end
+							render.SetColorModulation(OldR, OldG, OldB)
+						end
+					end
+
+					if ArmorInfo.bonsiz then
+						ply.EZarmorboneedited = true
+						plyboneedit[Index] = ArmorInfo.bonsiz
+					end
+				end
+			else
+				ply.EZarmorModels[id]:Remove()
+				ply.EZarmorModels[id] = nil
+			end
+		else
+			local Mdl = ClientsideModel(ArmorInfo.mdl)
+			Mdl:SetModel(ArmorInfo.mdl)
+			Mdl:SetMaterial(ArmorInfo.mat or "")
+			Mdl:SetMoveType(MOVETYPE_NONE)
+			if ArmorInfo.merge and not(nomerge) then
+				Mdl:SetParent(targetEnt, 0)
+				Mdl:AddEffects(EF_BONEMERGE)
+				Mdl:AddEffects(EF_BONEMERGE_FASTCULL)
+			else
+				Mdl:SetPos(targetEnt:GetPos())
+				Mdl:SetParent(targetEnt)
+				Mdl:SetNoDraw(true)
+			end
+			Mdl.EZArmor_CurrentParent = targetEnt
+			ply.EZarmorModels[id] = Mdl
+		end
+	end
+	if ply.EZarmorboneedited then
+		local edited = false
+		for k = 1, targetEnt:GetBoneCount() do
+			if targetEnt:GetManipulateBoneScale(k) ~= (plyboneedit[k] or Vector(1, 1, 1)) then
+				targetEnt:ManipulateBoneScale(k, plyboneedit[k] or Vector(1, 1, 1))
+			end
+			if targetEnt:GetManipulateBoneScale(k) ~= Vector(1, 1, 1) then
+				edited = true
 			end
 		end
-		if ply.EZarmorboneedited then
-			local edited = false
-
-			for k = 1, ply:GetBoneCount() do
-				if ply:GetManipulateBoneScale(k) ~= (plyboneedit[k] or Vector(1, 1, 1)) then
-					ply:ManipulateBoneScale(k, plyboneedit[k] or Vector(1, 1, 1))
-				end
-
-				if ply:GetManipulateBoneScale(k) ~= Vector(1, 1, 1) then
-					edited = true
-				end
-			end
-
-			if not edited then
-				--print("JMOD: bones not edited")
-				ply.EZarmorboneedited = false
-			end
+		if not edited then
+			ply.EZarmorboneedited = false
 		end
 	end
 end
@@ -190,6 +190,16 @@ end)
 hook.Add("PostPlayerDraw", "JMOD_ArmorPlayerDraw", function(ply)
 	if not IsValid(ply) then return end
 	JMod.ArmorPlayerModelDraw(ply)
+end)
+
+hook.Add("PostDrawOpaqueRenderables", "JMOD_ArmorRagdollDraw", function(bDepth, bSkybox)
+	if bDepth or bSkybox then return end
+
+	for _, ply in player.Iterator() do
+		if IsValid(ply) and IsValid(ply:GetNWEntity("FakeRagdoll")) then
+			JMod.ArmorPlayerModelDraw(ply)
+		end
+	end
 end)
 
 net.Receive("JMod_EZarmorSync", function()
