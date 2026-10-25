@@ -1,4 +1,4 @@
--- господи помилуй мой инвентарь, это ужас, я уже запутался в нем
+-- господи помилуй мой инвентарь, это ужас, я уже запутался в нем сделал и больше не заходить
 
 if IsValid(main_inventory) then main_inventory:Remove() end
 if IsValid(lootbox_frame) then lootbox_frame:Remove() end
@@ -25,7 +25,7 @@ inventory_slot_memory = inventory_slot_memory or {}
 local function GetItemPrintName(class, wepData)
     if string.StartWith(class, "ent_jack_gmod_ezarmor") then
         if JMod then
-            local tbls = {JMod.ArmorTable, JMod.EFTArmorTable, JMod.ArmorTableEFT}
+            local tbls = {JMod.ArmorTable, JMod.EFTArmorTable}
             for _, tbl in ipairs(tbls) do
                 if tbl then
                     for k, v in pairs(tbl) do
@@ -46,7 +46,7 @@ end
 local function GetArmorSlotNames(class)
     local slots = {}
     if JMod then
-        local tbls = {JMod.ArmorTable, JMod.EFTArmorTable, JMod.ArmorTableEFT}
+        local tbls = {JMod.ArmorTable, JMod.EFTArmorTable}
         for _, tbl in ipairs(tbls) do
             if tbl then
                 for k, v in pairs(tbl) do
@@ -309,7 +309,7 @@ function Frame_Inventory()
                             if itemID and not s.PendingDrop then
                                 slotPanel.PendingEquip = nil 
                                 hasArmor = true
-                                printName = itemData.name
+                                printName = GetItemPrintName(itemInfo.ent)
                                 rarityColor = kb.GetItemRarityColor(itemInfo.ent)
 
                                 if not s.ItemIcon or s.LastEnt ~= itemInfo.ent then
@@ -319,7 +319,7 @@ function Frame_Inventory()
                                 iconMat = s.ItemIcon
                             elseif slotPanel.PendingEquip then
                                 hasArmor = true
-                                printName = ""
+                                printName = GetItemPrintName(slotPanel.PendingEquip)
                                 rarityColor = kb.GetItemRarityColor(slotPanel.PendingEquip)
                                 
                                 if not s.ItemIcon or s.LastEnt ~= slotPanel.PendingEquip then
@@ -1515,7 +1515,7 @@ net.Receive("KB_OpenPlayerInventory", function()
                                     iconMat = s.ItemIcon
                                 elseif slotPanel.PendingEquip then
                                     hasArmor = true
-                                    printName = ""
+                                    printName = GetItemPrintName(slotPanel.PendingEquip)
                                     rarityColor = kb.GetItemRarityColor(slotPanel.PendingEquip)
                                     
                                     if not s.ItemIcon or s.LastEnt ~= slotPanel.PendingEquip then
