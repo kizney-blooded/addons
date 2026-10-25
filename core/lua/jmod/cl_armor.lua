@@ -1,7 +1,6 @@
 ﻿JMod.ArmorTableOffsetCache = {}
 function JMod.CopyArmorTableForModel(plyMdl)
 	JMod.ArmorTableOffsetCache = JMod.ArmorTableOffsetCache or {}
-	-- Make a copy of the relevant parts of an armor table and store them.
 	if plyMdl and JMod.LuaConfig and JMod.LuaConfig.ArmorOffsets and JMod.LuaConfig.ArmorOffsets[plyMdl] then
 		JMod.ArmorTableOffsetCache[plyMdl] = {}
 		for k, v in pairs(JMod.LuaConfig.ArmorOffsets[plyMdl]) do
@@ -200,6 +199,16 @@ hook.Add("PostDrawOpaqueRenderables", "JMOD_ArmorRagdollDraw", function(bDepth, 
 			JMod.ArmorPlayerModelDraw(ply)
 		end
 	end
+
+	if JMod.ArmorRagdolls then
+		for rag, _ in pairs(JMod.ArmorRagdolls) do
+			if IsValid(rag) then
+				JMod.ArmorPlayerModelDraw(rag)
+			else
+				JMod.ArmorRagdolls[rag] = nil
+			end
+		end
+	end
 end)
 
 net.Receive("JMod_EZarmorSync", function()
@@ -221,28 +230,61 @@ net.Receive("JMod_EZarmorSync", function()
 
 	if ply.EZarmorModels then
 		for k, v in pairs(ply.EZarmorModels) do
-			--if IsValid(v) then
+			local NoMatch = true
+			for id, armorData in pairs(ply.EZarmor.items) do
+				if k == id then
+					NoMatch = false 
+					break
+				end
+			end
+			if NoMatch then
+				v:Remove()
+				v = nil
+				ply.EZarmorModels[k] = nil
+			end
+		end
+	end
+end)
+
+JMod.ArmorRagdolls = JMod.ArmorRagdolls or {}
+
+net.Receive("KB_SyncRagdollArmor", function()
+	local rag = net.ReadEntity()
+	local armor = net.ReadTable()
+	
+	if IsValid(rag) then
+		rag.EZarmor = armor
+		JMod.ArmorRagdolls[rag] = true
+		
+		if rag.EZarmorModels then
+			for k, v in pairs(rag.EZarmorModels) do
 				local NoMatch = true
-				for id, armorData in pairs(ply.EZarmor.items) do
-					if k == id then
-						NoMatch = false 
-						break
+				if rag.EZarmor and rag.EZarmor.items then
+					for id, armorData in pairs(rag.EZarmor.items) do
+						if k == id then
+							NoMatch = false 
+							break
+						end
 					end
 				end
 				if NoMatch then
-					--print("Removing: ", v)
-					v:Remove()
-					v = nil
-					ply.EZarmorModels[k] = nil
+					if IsValid(v) then v:Remove() end
+					rag.EZarmorModels[k] = nil
 				end
-			--else
-			--	ply.EZarmorModels[k] = nil
-			--end
+			end
 		end
 	end
-	
-	--PrintTable(ply.EZarmorModels)
-	--PrintTable(ply.EZarmor)
+end)
+
+hook.Add("EntityRemoved", "JMod_ArmorRagdollCleanup", function(ent)
+	if ent.EZarmorModels then
+		for k, v in pairs(ent.EZarmorModels) do
+			if IsValid(v) then v:Remove() end
+		end
+	end
+	if JMod.ArmorRagdolls and JMod.ArmorRagdolls[ent] then
+		JMod.ArmorRagdolls[ent] = nil
+	end
 end)
 
 concommand.Add("jmod_debug_countclientsidemodels", function()
@@ -252,11 +294,9 @@ concommand.Add("jmod_debug_countclientsidemodels", function()
 
 	for k, v in pairs(ents.FindByClass("*C_BaseFlex")) do
 		if v:GetModel() == nil then continue end
-
 		if entite[v:GetModel()] == nil then
 			entite[v:GetModel()] = 0
 		end
-
 		entite[v:GetModel()] = entite[v:GetModel()] + 1
 		i = i + 1
 	end
@@ -265,11 +305,9 @@ concommand.Add("jmod_debug_countclientsidemodels", function()
 	print("-")
 	print("- CLIENTSIDE STUFF START :")
 	print("-")
-
 	for k, v in pairs(entite) do
 		print(v .. " : " .. k)
 	end
-
 	print("-")
 	print("- CLIENTSIDE STUFF END ...")
 	print("-")

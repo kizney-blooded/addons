@@ -28,6 +28,59 @@ local weapon_blacklist = {
     ["weapon_physgun"] = true,
 }
 
+local function SyncRagdollArmorGlobally(ent)
+    if IsValid(ent) and ent:GetClass() == "prop_ragdoll" then
+        net.Start("KB_SyncRagdollArmor")
+        net.WriteEntity(ent)
+        net.WriteTable(ent.EZarmor or {})
+        net.Broadcast()
+    end
+end
+
+local function SafeRemoveArmor(ent, armorID)
+    if ent:IsPlayer() then
+        return JMod.RemoveArmorByID(ent, armorID, false)
+    else
+        local Info = ent.EZarmor and ent.EZarmor.items and ent.EZarmor.items[armorID]
+        if not Info then return end
+        local Specs = JMod.ArmorTable[Info.name]
+        
+        local dropped = ents.Create(Specs.ent)
+        dropped:SetPos(ent:GetPos() + Vector(0,0,20))
+        dropped:SetAngles(AngleRand())
+        dropped.Durability = Info.dur
+        if Info.chrg then dropped.ArmorCharges = table.FullCopy(Info.chrg) end
+        dropped.EZID = armorID
+        dropped:SetColor(Info.col)
+        dropped:Spawn()
+        dropped:Activate()
+        
+        ent.EZarmor.items[armorID] = nil
+        return dropped
+    end
+end
+
+local function SafeEquipArmor(ent, dropped_ent)
+    if ent:IsPlayer() then
+        JMod.EZ_Equip_Armor(ent, dropped_ent)
+    else
+        local NewArmorName = dropped_ent.ArmorName
+        local NewArmorSpecs = JMod.ArmorTable[NewArmorName]
+        local NewArmorID = dropped_ent.EZID
+        
+        ent.EZarmor = ent.EZarmor or table.FullCopy(JMod.DEFAULT_ARMOR)
+        ent.EZarmor.items[NewArmorID] = {
+            name = NewArmorName,
+            dur = dropped_ent.Durability or NewArmorSpecs.dur,
+            col = dropped_ent:GetColor(),
+            chrg = dropped_ent.ArmorCharges,
+            id = NewArmorID,
+            tgl = false
+        }
+        dropped_ent:Remove()
+    end
+end
+
 hook.Add("PlayerButtonDown", "Check_inventory_players123", function(ply, btn)
     if btn == KEY_E then
         local tr = ply:GetEyeTrace()
@@ -87,7 +140,7 @@ hook.Add("PlayerButtonDown", "Check_inventory_players123", function(ply, btn)
                 net.WriteEntity(ent)
                 net.WriteTable(ent.Inventory)
                 net.WriteBool(false)
-                net.WriteTable((IsValid(ent.FakePlayer) and ent.FakePlayer.EZarmor) and ent.FakePlayer.EZarmor or {})
+                net.WriteTable(ent.EZarmor or (IsValid(ent.FakePlayer) and ent.FakePlayer.EZarmor) or {})
                 net.Send(ply)
             end
         end
@@ -209,7 +262,7 @@ net.Receive("KB_ClaimLoot", function(len, ply)
                 net.WriteEntity(box_ent)
                 net.WriteTable(box_ent.Inventory)
                 net.WriteBool(true)
-                net.WriteTable((IsValid(box_ent.FakePlayer) and box_ent.FakePlayer.EZarmor) and box_ent.FakePlayer.EZarmor or {})
+                net.WriteTable(box_ent.EZarmor or (IsValid(box_ent.FakePlayer) and box_ent.FakePlayer.EZarmor) or {})
                 net.Send(viewers)
             else
                 net.Start("KB_OpenLootBox")
@@ -284,7 +337,7 @@ net.Receive("KB_PutItem", function(len, ply)
                 net.WriteEntity(box_ent)
                 net.WriteTable(box_ent.Inventory)
                 net.WriteBool(true)
-                net.WriteTable((IsValid(box_ent.FakePlayer) and box_ent.FakePlayer.EZarmor) and box_ent.FakePlayer.EZarmor or {})
+                net.WriteTable(box_ent.EZarmor or (IsValid(box_ent.FakePlayer) and box_ent.FakePlayer.EZarmor) or {})
             net.Send(viewers)
         else
             net.Start("KB_OpenLootBox")
@@ -320,7 +373,7 @@ net.Receive("KB_PutArmorItem", function(len, ply)
     end
     
     if actual_target.EZarmor and actual_target.EZarmor.items and actual_target.EZarmor.items[armorID] then
-        local dropped_ent = JMod.RemoveArmorByID(actual_target, armorID, false)
+        local dropped_ent = SafeRemoveArmor(actual_target, armorID)
         if IsValid(dropped_ent) then
             local wep_class = dropped_ent:GetClass()
             dropped_ent:Remove() 
@@ -340,12 +393,14 @@ net.Receive("KB_PutArmorItem", function(len, ply)
                 end
             end
 
+            SyncRagdollArmorGlobally(actual_target)
+
             if box_ent:GetClass() == "prop_ragdoll" then
                 net.Start("KB_OpenPlayerInventory")
                 net.WriteEntity(box_ent)
                 net.WriteTable(box_ent.Inventory)
                 net.WriteBool(true)
-                net.WriteTable((IsValid(box_ent.FakePlayer) and box_ent.FakePlayer.EZarmor) and box_ent.FakePlayer.EZarmor or {})
+                net.WriteTable(box_ent.EZarmor or (IsValid(box_ent.FakePlayer) and box_ent.FakePlayer.EZarmor) or {})
                 net.Send(viewers)
             else
                 net.Start("KB_OpenLootBox")
@@ -357,7 +412,6 @@ net.Receive("KB_PutArmorItem", function(len, ply)
         end
     end
 end)
-
 
 net.Receive("KB_SwapLootboxItem", function(len, ply)
     local box_ent = net.ReadEntity()
@@ -402,7 +456,7 @@ net.Receive("KB_SwapLootboxItem", function(len, ply)
             net.WriteEntity(box_ent)
             net.WriteTable(box_ent.Inventory)
             net.WriteBool(true)
-            net.WriteTable((IsValid(box_ent.FakePlayer) and box_ent.FakePlayer.EZarmor) and box_ent.FakePlayer.EZarmor or {})
+            net.WriteTable(box_ent.EZarmor or (IsValid(box_ent.FakePlayer) and box_ent.FakePlayer.EZarmor) or {})
             net.Send(viewers)
         else
             net.Start("KB_OpenLootBox")
@@ -507,7 +561,7 @@ net.Receive("KB_DropLootboxItem", function(len, ply)
                 net.WriteEntity(box_ent)
                 net.WriteTable(box_ent.Inventory)
                 net.WriteBool(true)
-                net.WriteTable((IsValid(box_ent.FakePlayer) and box_ent.FakePlayer.EZarmor) and box_ent.FakePlayer.EZarmor or {})
+                net.WriteTable(box_ent.EZarmor or (IsValid(box_ent.FakePlayer) and box_ent.FakePlayer.EZarmor) or {})
                 net.Send(viewers)
             else
                 net.Start("KB_OpenLootBox")
@@ -532,7 +586,7 @@ local function SyncTargetArmorViewers(target_ent)
         net.WriteEntity(target_ent)
         net.WriteTable(target_ent.Inventory or {})
         net.WriteBool(true)
-        net.WriteTable((IsValid(target_ent.FakePlayer) and target_ent.FakePlayer.EZarmor) and target_ent.FakePlayer.EZarmor or {})
+        net.WriteTable(target_ent.EZarmor or (IsValid(target_ent.FakePlayer) and target_ent.FakePlayer.EZarmor) or {})
         net.Send(viewers)
     end
 end
@@ -547,10 +601,11 @@ net.Receive("KB_TransferArmorToLocal", function(len, ply)
     if target_ent:GetClass() == "prop_ragdoll" and IsValid(target_ent.FakePlayer) then actual_target = target_ent.FakePlayer end
     
     if actual_target.EZarmor and actual_target.EZarmor.items and actual_target.EZarmor.items[armorID] then
-        local dropped_ent = JMod.RemoveArmorByID(actual_target, armorID, false)
+        local dropped_ent = SafeRemoveArmor(actual_target, armorID)
         if IsValid(dropped_ent) then
             JMod.EZ_Equip_Armor(ply, dropped_ent)
         end
+        SyncRagdollArmorGlobally(actual_target)
         SyncTargetArmorViewers(target_ent)
     end
 end)
@@ -567,8 +622,9 @@ net.Receive("KB_TransferArmorToTarget", function(len, ply)
     if ply.EZarmor and ply.EZarmor.items and ply.EZarmor.items[armorID] then
         local dropped_ent = JMod.RemoveArmorByID(ply, armorID, false)
         if IsValid(dropped_ent) then
-            JMod.EZ_Equip_Armor(actual_target, dropped_ent)
+            SafeEquipArmor(actual_target, dropped_ent)
         end
+        SyncRagdollArmorGlobally(actual_target)
         SyncTargetArmorViewers(target_ent)
     end
 end)
@@ -583,12 +639,13 @@ net.Receive("KB_DropTargetArmor", function(len, ply)
     if target_ent:GetClass() == "prop_ragdoll" and IsValid(target_ent.FakePlayer) then actual_target = target_ent.FakePlayer end
     
     if actual_target.EZarmor and actual_target.EZarmor.items and actual_target.EZarmor.items[armorID] then
-        local dropped_ent = JMod.RemoveArmorByID(actual_target, armorID, false)
+        local dropped_ent = SafeRemoveArmor(actual_target, armorID)
         if IsValid(dropped_ent) then
             dropped_ent:SetPos(ply:GetShootPos() + ply:GetAimVector() * 30)
             local phys = dropped_ent:GetPhysicsObject()
             if IsValid(phys) then phys:SetVelocity(ply:GetAimVector() * 200) end
         end
+        SyncRagdollArmorGlobally(actual_target)
         SyncTargetArmorViewers(target_ent)
     end
 end)

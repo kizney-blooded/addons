@@ -1,3 +1,5 @@
+util.AddNetworkString("KB_SyncRagdollArmor")
+
 local playermeta = FindMetaTable("Player")
 
 playermeta.CreateRagdoll = function() return false end
@@ -208,7 +210,19 @@ hook.Add("PlayerDeath","DeathFake",function(ply,inf,att)
             })
         end
         ply.FakeRagdoll.Inventory = inv
+
+        if ply.EZarmor then
+            ply.FakeRagdoll.EZarmor = table.FullCopy(ply.EZarmor)
+        else
+            ply.FakeRagdoll.EZarmor = {}
+        end
+        
         ply.FakeRagdoll.FakePlayer = nil
+
+        net.Start("KB_SyncRagdollArmor")
+        net.WriteEntity(ply.FakeRagdoll)
+        net.WriteTable(ply.FakeRagdoll.EZarmor)
+        net.Broadcast()
     end
 
     if IsValid(ply.FakeRagdoll) then
