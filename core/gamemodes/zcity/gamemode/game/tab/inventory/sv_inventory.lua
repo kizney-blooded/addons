@@ -83,10 +83,15 @@ end
 
 hook.Add("PlayerButtonDown", "Check_inventory_players123", function(ply, btn)
     if btn == KEY_E then
+        if not ply:Alive() then return end
+
         local tr = ply:GetEyeTrace()
         local ent = tr.Entity
         
         if IsValid(ent) and ent:GetClass() == "prop_ragdoll" and ply:GetPos():DistToSqr(ent:GetPos()) < 10000 then
+
+            if ent.FakePlayer == ply then return end
+            
             if not ent.Inventory then
                 local inv = {}
                 

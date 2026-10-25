@@ -760,6 +760,12 @@ function Frame_Inventory()
         self.uiAlpha = Lerp(FrameTime() * 15, self.uiAlpha, targetAlpha)
         self:SetAlpha(self.uiAlpha)
 
+        if not self.isClosing and not LocalPlayer():Alive() then
+            if IsValid(lootbox_frame) then lootbox_frame:Close() end
+            if IsValid(playerinventory_frame) then playerinventory_frame:Close() end
+            self.isClosing = true
+        end
+
         if self.isClosing and self.uiAlpha < 5 then
             self:Remove()
         end
@@ -836,6 +842,12 @@ net.Receive("KB_OpenLootBox", function()
             local targetAlpha = self.isClosing and 0 or 255
             self.uiAlpha = Lerp(FrameTime() * 10, self.uiAlpha, targetAlpha)
             self:SetAlpha(self.uiAlpha)
+
+            if not self.isClosing then
+                if not LocalPlayer():Alive() or not IsValid(box_ent) or LocalPlayer():GetPos():DistToSqr(box_ent:GetPos()) > 10000 then
+                    self:Close()
+                end
+            end
 
             if self.isClosing and self.uiAlpha < 5 then
                 self:Remove()
@@ -1226,6 +1238,12 @@ net.Receive("KB_OpenPlayerInventory", function()
             self.uiAlpha = Lerp(FrameTime() * 10, self.uiAlpha, targetAlpha)
             self:SetAlpha(self.uiAlpha)
 
+            if not self.isClosing then
+                if not LocalPlayer():Alive() or not IsValid(player_ent) or LocalPlayer():GetPos():DistToSqr(player_ent:GetPos()) > 10000 then
+                    self:Close()
+                end
+            end
+
             if self.isClosing and self.uiAlpha < 5 then
                 self:Remove()
             end
@@ -1271,7 +1289,8 @@ net.Receive("KB_OpenPlayerInventory", function()
         
         if IsValid(targetPlyModel.Entity) and IsValid(player_ent) then
             targetPlyModel.Entity.GetPlayerColor = function()
-                return player_ent:GetPlayerColor()
+                
+                return IsValid(player_ent) and player_ent:GetPlayerColor()
             end
             targetPlyModel.Entity:SetSkin(player_ent:GetSkin() or 0)
             for _, bg in pairs(player_ent:GetBodyGroups()) do
