@@ -1,3 +1,5 @@
+-- господи помилуй мой инвентарь, это ужас, я уже запутался в нем
+
 if IsValid(main_inventory) then main_inventory:Remove() end
 if IsValid(lootbox_frame) then lootbox_frame:Remove() end
 if IsValid(playerinventory_frame) then playerinventory_frame:Remove() end
@@ -792,7 +794,23 @@ net.Receive("KB_OpenLootBox", function()
         return 
     end
 
-    local count = table.Count(items)
+    local max_idx = 0
+    
+    for k, v in pairs(items) do
+        if type(k) == "number" and k > max_idx then
+            max_idx = k
+        end
+    end
+    
+    local visual_slots = {}
+    for i = 1, max_idx do
+        visual_slots[i] = {
+            server_index = i,
+            item = items[i]
+        }
+    end
+    
+    local count = #visual_slots
     
     local btnSize = 75
     local gap = 0
@@ -874,16 +892,19 @@ net.Receive("KB_OpenLootBox", function()
 
     local remainingItems = 0
     for _, item in pairs(items) do
-        if not item.claimed then
+        if type(item) == "table" and not item.claimed then
             remainingItems = remainingItems + 1
         end
     end
     lootbox_frame.RemainingItems = remainingItems
 
-    for index, item in ipairs(items) do
+    for index, slot_data in ipairs(visual_slots) do
+        local server_index = slot_data.server_index
+        local item = slot_data.item
+        
         local slotPanel = vgui.Create("DPanel", lootbox_frame.Scroll)
         slotPanel:SetSize(btnSize, btnSize)
-        slotPanel.SlotIndex = index
+        slotPanel.SlotIndex = server_index
 
         slotPanel.RealSetPos = slotPanel.SetPos
         
@@ -987,6 +1008,8 @@ net.Receive("KB_OpenLootBox", function()
                         local old_parent = pnl:GetParent()
                         if old_parent == self_pnl then return end
 
+                        if pnl.BoxEnt != box_ent then return end
+
                         local existing_btn = nil
                         for _, child in ipairs(self_pnl:GetChildren()) do
                             if child:GetName() == "DButton" and child ~= pnl then
@@ -1015,11 +1038,6 @@ net.Receive("KB_OpenLootBox", function()
                         
                         pnl:SetParent(self_pnl)
                         pnl:SetPos(0, 0)
-
-                        local temp_item = items[temp_index]
-                        items[temp_index] = items[pnl.SlotIndex]
-                        items[pnl.SlotIndex] = temp_item
-
                         return
                     end
 
@@ -1049,6 +1067,15 @@ net.Receive("KB_OpenLootBox", function()
                         
                         pnl.PendingDrop = true
                         self_pnl.PendingPut = pnl.ArmorEntClass
+                        
+                        timer.Simple(0.5, function()
+                            if IsValid(self_pnl) and self_pnl.PendingPut == pnl.ArmorEntClass then
+                                self_pnl.PendingPut = nil
+                            end
+                            if IsValid(pnl) then
+                                pnl.PendingDrop = false
+                            end
+                        end)
                         return
                     end
 
@@ -1074,6 +1101,15 @@ net.Receive("KB_OpenLootBox", function()
                         
                         pnl:SetVisible(false)
                         self_pnl.PendingPut = pnl.WepClass
+                        
+                        timer.Simple(0.5, function()
+                            if IsValid(self_pnl) and self_pnl.PendingPut == pnl.WepClass then
+                                self_pnl.PendingPut = nil
+                            end
+                            if IsValid(pnl) then
+                                pnl:SetVisible(true)
+                            end
+                        end)
                     end
                 end
             end)
@@ -1081,10 +1117,10 @@ net.Receive("KB_OpenLootBox", function()
 
         SetupReceiver()
 
-        if not item.claimed then
+        if item and not item.claimed then
             local btn = vgui.Create("DButton", slotPanel)
             btn:SetSize(btnSize, btnSize)
-            btn.SlotIndex = index
+            btn.SlotIndex = server_index
             btn.BoxEnt = box_ent
 
             local wep = weapons.GetStored(item.class)
@@ -1160,9 +1196,8 @@ net.Receive("KB_OpenLootBox", function()
 
                 if string.StartWith(item.class, "ent_jack_gmod_ezarmor") or not LocalPlayer():HasWeapon(item.class) then
                     btn:Remove()
-                    item.claimed = true 
+                    
                     lootbox_frame.RemainingItems = lootbox_frame.RemainingItems - 1
-
                     if lootbox_frame.RemainingItems <= 0 then
                         timer.Simple(0.1, function() 
                             if IsValid(lootbox_frame) and not box_ent.IsStorage then
@@ -1190,6 +1225,16 @@ net.Receive("KB_OpenPlayerInventory", function()
         return 
     end
     
+    local visual_slots = {}
+    for i = 1, 8 do
+        visual_slots[i] = {
+            server_index = i,
+            item = items[i]
+        }
+    end
+    
+    local count = 8
+    
     local btnSize = 75
     local gap = 0
     local paddingTop = 40
@@ -1197,8 +1242,9 @@ net.Receive("KB_OpenPlayerInventory", function()
     local paddingSide = 40
     
     local maxCols = 8
-    local cols = 8
-    local rows = 1
+    local cols = math.min(count, maxCols)
+    local rows = math.ceil(count / maxCols)
+    if rows == 0 then rows = 1 end
     
     local contentWidth = (btnSize * cols) + (gap * (cols - 1))
     local contentHeight = (btnSize * rows) + (gap * (rows - 1))
@@ -1289,7 +1335,6 @@ net.Receive("KB_OpenPlayerInventory", function()
         
         if IsValid(targetPlyModel.Entity) and IsValid(player_ent) then
             targetPlyModel.Entity.GetPlayerColor = function()
-                
                 return IsValid(player_ent) and player_ent:GetPlayerColor()
             end
             targetPlyModel.Entity:SetSkin(player_ent:GetSkin() or 0)
@@ -1537,20 +1582,23 @@ net.Receive("KB_OpenPlayerInventory", function()
         playerinventory_frame.Scroll:SetPos((frameW - contentWidth) / 2, paddingTop)
     end
 
+    playerinventory_frame:MoveToFront()
+
     local remainingItems = 0
     for _, item in pairs(items) do
-        if not item.claimed then
+        if type(item) == "table" and not item.claimed then
             remainingItems = remainingItems + 1
         end
     end
     playerinventory_frame.RemainingItems = remainingItems
 
-    for index = 1, cols do
-        local item = items[index]
+    for index, slot_data in ipairs(visual_slots) do
+        local server_index = slot_data.server_index
+        local item = slot_data.item
         
         local slotPanel = vgui.Create("DPanel", playerinventory_frame.Scroll)
         slotPanel:SetSize(btnSize, btnSize)
-        slotPanel.SlotIndex = index
+        slotPanel.SlotIndex = server_index
 
         slotPanel.RealSetPos = slotPanel.SetPos
         
@@ -1654,6 +1702,8 @@ net.Receive("KB_OpenPlayerInventory", function()
                         local old_parent = pnl:GetParent()
                         if old_parent == self_pnl then return end
 
+                        if pnl.BoxEnt != player_ent then return end
+
                         local existing_btn = nil
                         for _, child in ipairs(self_pnl:GetChildren()) do
                             if child:GetName() == "DButton" and child ~= pnl then
@@ -1682,16 +1732,11 @@ net.Receive("KB_OpenPlayerInventory", function()
                         
                         pnl:SetParent(self_pnl)
                         pnl:SetPos(0, 0)
-
-                        local temp_item = items[temp_index]
-                        items[temp_index] = items[pnl.SlotIndex]
-                        items[pnl.SlotIndex] = temp_item
-
                         return
                     end
 
                     if pnl.DragArmorID then
-                        --[[local is_empty = true
+                        local is_empty = true
                         for _, child in ipairs(self_pnl:GetChildren()) do
                             if child:GetName() == "DButton" and child:IsVisible() then
                                 is_empty = false
@@ -1715,7 +1760,16 @@ net.Receive("KB_OpenPlayerInventory", function()
                         surface.PlaySound(put_snd)
                         
                         pnl.PendingDrop = true
-                        self_pnl.PendingPut = pnl.ArmorEntClass--]]
+                        self_pnl.PendingPut = pnl.ArmorEntClass
+                        
+                        timer.Simple(0.5, function()
+                            if IsValid(self_pnl) and self_pnl.PendingPut == pnl.ArmorEntClass then
+                                self_pnl.PendingPut = nil
+                            end
+                            if IsValid(pnl) then
+                                pnl.PendingDrop = false
+                            end
+                        end)
                         return
                     end
 
@@ -1741,6 +1795,15 @@ net.Receive("KB_OpenPlayerInventory", function()
                         
                         pnl:SetVisible(false)
                         self_pnl.PendingPut = pnl.WepClass
+                        
+                        timer.Simple(0.5, function()
+                            if IsValid(self_pnl) and self_pnl.PendingPut == pnl.WepClass then
+                                self_pnl.PendingPut = nil
+                            end
+                            if IsValid(pnl) then
+                                pnl:SetVisible(true)
+                            end
+                        end)
                     end
                 end
             end)
@@ -1748,10 +1811,10 @@ net.Receive("KB_OpenPlayerInventory", function()
 
         SetupReceiver()
 
-        if item and not item.claimed and not weapon_blacklist[item.class] then
+        if item and not item.claimed then
             local btn = vgui.Create("DButton", slotPanel)
             btn:SetSize(btnSize, btnSize)
-            btn.SlotIndex = index
+            btn.SlotIndex = server_index
             btn.BoxEnt = player_ent
 
             local wep = weapons.GetStored(item.class)
@@ -1826,7 +1889,6 @@ net.Receive("KB_OpenPlayerInventory", function()
 
                 if string.StartWith(item.class, "ent_jack_gmod_ezarmor") or not LocalPlayer():HasWeapon(item.class) then
                     btn:Remove()
-                    item.claimed = true 
                     
                     playerinventory_frame.RemainingItems = playerinventory_frame.RemainingItems - 1
                 end

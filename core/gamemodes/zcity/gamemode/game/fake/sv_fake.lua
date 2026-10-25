@@ -187,6 +187,13 @@ hook.Add("OnPhysgunPickup","Auto_Fake",function(ply,ent)
     end
 end)
 
+local weapon_blacklist = {
+    ["wep_jack_gmod_hands"] = true,
+    ["weapon_physcannon"] = true,
+    ["gmod_tool"] = true,
+    ["weapon_physgun"] = true,
+}
+
 
 hook.Add("PlayerDeath","DeathFake",function(ply,inf,att)
 
@@ -202,12 +209,14 @@ hook.Add("PlayerDeath","DeathFake",function(ply,inf,att)
     if IsValid(ply.FakeRagdoll) then
         local inv = {}
         for _, wep in ipairs(ply:GetWeapons()) do
-            table.insert(inv, {
-                class = wep:GetClass(), 
-                claimed = false, 
-                clip1 = wep:Clip1(), 
-                clip2 = wep:Clip2()
-            })
+            if not weapon_blacklist[wep:GetClass()] then
+                table.insert(inv, {
+                    class = wep:GetClass(), 
+                    claimed = false, 
+                    clip1 = wep:Clip1(), 
+                    clip2 = wep:Clip2()
+                })
+            end
         end
         ply.FakeRagdoll.Inventory = inv
 

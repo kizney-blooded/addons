@@ -91,6 +91,8 @@ hook.Add("PlayerButtonDown", "Check_inventory_players123", function(ply, btn)
         if IsValid(ent) and ent:GetClass() == "prop_ragdoll" and ply:GetPos():DistToSqr(ent:GetPos()) < 10000 then
 
             if ent.FakePlayer == ply then return end
+
+            ply:EmitSound("body/body_medium_impact_soft" .. math.random(1,5) .. ".wav")
             
             if not ent.Inventory then
                 local inv = {}
@@ -245,10 +247,12 @@ net.Receive("KB_ClaimLoot", function(len, ply)
         end
         
         local has_items_left = false
-        for i = 1, #box_ent.Inventory do
-            if not box_ent.Inventory[i].claimed then
-                has_items_left = true
-                break
+        if box_ent.Inventory then
+            for k, v in pairs(box_ent.Inventory) do
+                if type(k) == "number" and type(v) == "table" and not v.claimed then
+                    has_items_left = true
+                    break
+                end
             end
         end
         
@@ -284,6 +288,8 @@ net.Receive("KB_PutItem", function(len, ply)
     local box_ent = net.ReadEntity()
     local item_index = net.ReadUInt(8)
     local wep_class = net.ReadString()
+
+    if weapon_blacklist[wep_class] then return end
 
     if not IsValid(ply) or not ply:IsPlayer() then return end
     if not IsValid(box_ent) then return end
@@ -473,13 +479,9 @@ net.Receive("KB_SwapLootboxItem", function(len, ply)
     end
 end)
 
-local blacklist = {
-    ["wep_jack_gmod_hands"] = true
-}
-
 local function DropWeapon(ply, wpn)
 	if not IsValid(wpn) then return end
-	if (blacklist[wpn:GetClass()] or wpn.AdminOnly) then return end
+	if (weapon_blacklist[wpn:GetClass()] or wpn.AdminOnly) then return end
 	ply:DropWeapon(wpn)
 end
 
@@ -544,10 +546,12 @@ net.Receive("KB_DropLootboxItem", function(len, ply)
         end
         
         local has_items_left = false
-        for i = 1, #box_ent.Inventory do
-            if not box_ent.Inventory[i].claimed then
-                has_items_left = true
-                break
+        if box_ent.Inventory then
+            for k, v in pairs(box_ent.Inventory) do
+                if type(k) == "number" and type(v) == "table" and not v.claimed then
+                    has_items_left = true
+                    break
+                end
             end
         end
         
