@@ -2,11 +2,12 @@ hook.Add("PlayerInitialSpawn","GoToSpectate",function(ply,bool)
     if IsValid(ply) then
 
         ply.PreferredSpecMode = OBS_MODE_ROAMING
-
-        timer.Simple(0.1,function()
-            ply:KillSilent()
-            ply:Spectate(ply.PreferredSpecMode)
-        end)
+        if kb.RD.state != 1 and kb.RD.current_round != "constract" then
+            timer.Simple(0.1,function()
+                ply:KillSilent()
+                ply:Spectate(ply.PreferredSpecMode)
+            end)
+        end
     end
 end)
 
