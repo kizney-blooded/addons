@@ -200,7 +200,7 @@ local weapon_blacklist = {
 }
 
 
-hook.Add("PlayerDeath","DeathFake",function(ply,inf,att)
+hook.Add("DoPlayerDeath","DeathFake",function(ply,inf,att)
 
     if not IsValid(ply.FakeRagdoll) then
         ply:create_fake()
@@ -233,10 +233,16 @@ hook.Add("PlayerDeath","DeathFake",function(ply,inf,att)
         
         ply.FakeRagdoll.FakePlayer = nil
 
-        net.Start("KB_SyncRagdollArmor")
-        net.WriteEntity(ply.FakeRagdoll)
-        net.WriteTable(ply.FakeRagdoll.EZarmor)
-        net.Broadcast()
+        local deadRagdoll = ply.FakeRagdoll
+
+        timer.Simple(0.1, function()
+            if IsValid(deadRagdoll) then
+                net.Start("KB_SyncRagdollArmor")
+                net.WriteEntity(deadRagdoll)
+                net.WriteTable(deadRagdoll.EZarmor)
+                net.Broadcast()
+            end
+        end)
     end
 
     if IsValid(ply.FakeRagdoll) then
