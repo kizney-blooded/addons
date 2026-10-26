@@ -8,7 +8,7 @@ ENT.Spawnable = true
 
 kb = kb or {}
 
-kb.Weapon_in_Lootboxes = {
+kb.Armor_in_Lootboxes = {
     slots = 2,
     respawn = 390,
     { class = "ent_jack_gmod_ezarmor_maska", chance = 20 },
@@ -28,4 +28,4 @@ kb.Weapon_in_Lootboxes = {
 
 ENT.BoxModel = "models/sarma_crates/static_crate_48.mdl"
 ENT.BoxSkin = 0
-ENT.LootTable = kb.Weapon_in_Lootboxes
+ENT.LootTable = kb.Armor_in_Lootboxes

@@ -28,4 +28,4 @@ kb.Item_in_Lootboxes = {
 
 ENT.BoxModel = "models/sarma_crates/static_crate_40.mdl"
 ENT.BoxSkin = 0
-ENT.LootTable = kb.Item_in_Lootboxes
+--ENT.LootTable = kb.Item_in_Lootboxes
