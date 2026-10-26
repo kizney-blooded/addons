@@ -211,7 +211,7 @@ concommand.Add("levelnext", function(ply, cmd, args)
     else
         if IsValid(ply) then
             ply:ChatPrint("Использование: levelnext название")
-        else1
+        else
             print("Использование: levelnext название")
         end
     end
