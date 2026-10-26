@@ -116,12 +116,12 @@ function JMod.EZ_Remote_Trigger(ply)
 	end)
 end
 
-concommand.Add("jmod_friends", function(ply)
+--[[concommand.Add("jmod_friends", function(ply)
 	net.Start("JMod_Friends")
 	net.WriteBit(false)
 	net.WriteTable(ply.JModFriends or {})
 	net.Send(ply)
-end, nil, "Opens a menu for you to modify your friend list.")
+end, nil, "Opens a menu for you to modify your friend list.")--]]
 
 concommand.Add("jmod_reloadconfig", function(ply)
 	if IsValid(ply) and not ply:IsSuperAdmin() then return end
@@ -168,8 +168,8 @@ concommand.Add("jmod_admin_sanitizemap", function(ply, cmd, args)
 	end
 end, nil, "Removes JMod radiation and from map and players")
 
-concommand.Add("jmod_debug", function(ply, cmd, args)
-	if not(JMod.IsAdmin(ply)) then return end
+--concommand.Add("jmod_debug", function(ply, cmd, args)
+	--if not(JMod.IsAdmin(ply)) then return end
 	--[[
 	for i = 1, 100 do
 		timer.Simple(i / 20, function()
@@ -178,10 +178,10 @@ concommand.Add("jmod_debug", function(ply, cmd, args)
 	end
 	--]]
 	---[[
-	local EffData = EffectData()
-	EffData:SetOrigin(ply:GetShootPos() + ply:GetAimVector() * 500)
-	EffData:SetScale(240)
-	util.Effect("eff_jack_gmod_bubbleshieldburst", EffData, true, true)
+	--local EffData = EffectData()
+	--EffData:SetOrigin(ply:GetShootPos() + ply:GetAimVector() * 500)
+	--EffData:SetScale(240)
+	--util.Effect("eff_jack_gmod_bubbleshieldburst", EffData, true, true)
 	--]]
 	--print(JMod.GetHoliday())
 	--JMod.DebugArrangeEveryone(ply)
@@ -222,7 +222,7 @@ concommand.Add("jmod_debug", function(ply, cmd, args)
 	net.WriteBit(true)
 	net.Send(ply)
 	--]]
-end)
+--end)
 
 concommand.Add("jmod_debug_killme", function(ply)
 	if not IsValid(ply) then return end

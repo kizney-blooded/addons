@@ -2086,13 +2086,13 @@ local JModInventoryMenu = function(PlyModel, itemTable)
 	return motherFrame
 end
 
-list.Set("DesktopWindows", "JMod Inventory Button", {
+--[[list.Set("DesktopWindows", "JMod Inventory Button", {
 	title = "JMod Inventory",
 	icon = JModIcon..".png",
 	init = function( icon, window )
 		LocalPlayer():ConCommand("jmod_ez_inv")
 	end
-})
+})--]]
 
 local JModItemInventoryMenu = function(invEnt, newInv, customOffset)
 	local frame = vgui.Create("DFrame")
@@ -2231,7 +2231,7 @@ net.Receive("JMod_Inventory", function()
 	if IsValid(CurrentJModInvScreen) then
 		CurrentJModInvScreen:Close()
 	end
-	JModInventoryMenu(net.ReadString(), net.ReadTable())
+	--JModInventoryMenu(net.ReadString(), net.ReadTable())
 end)
 
 local MachineStatus = {
