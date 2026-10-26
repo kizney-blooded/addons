@@ -109,9 +109,10 @@ end)
 
 -- шкаф
 
-if not SERVER then return end
 
 local function PreventSpawning(ply)
+    if ply:IsSuperAdmin() then return end
+
     if not IsValid(ply.MyShkaf) then
         ply:ChatPrint("Сначала поставьте шкаф для размещения предметов!")
         return false
@@ -122,6 +123,9 @@ hook.Add("PlayerSpawnVehicle", "Shkaf_PreventVehicle", PreventSpawning)
 hook.Add("PlayerSpawnNPC", "Shkaf_PreventNPC", PreventSpawning)
 hook.Add("PlayerSpawnSWEP", "Shkaf_PreventSWEP", PreventSpawning)
 hook.Add("PlayerSpawnSENT", "Shkaf_PreventSENT", function(ply, class)
+
+    if ply:IsSuperAdmin() then return end
+
     if class == "con_shkaf" then
         local tr = ply:GetEyeTrace()
         local spawnPos = tr.HitPos
@@ -153,6 +157,8 @@ hook.Add("PlayerSpawnedSENT", "Shkaf_RegisterOwner", function(ply, ent)
 end)
 
 local function CheckSpawnedItem(ply, ent)
+    if ply:IsSuperAdmin() then return end
+    
     if not IsValid(ply.MyShkaf) then
         ent:Remove()
         return
