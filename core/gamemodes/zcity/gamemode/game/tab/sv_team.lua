@@ -9,9 +9,17 @@ net.Receive("ChangePlayerTeam", function(len, ply)
     if teamID == 1 then
         ply:ChatPrint("Ты стал игроком.")
         ply:SetTeam(1)
+
         if ply:Alive() then
             ply:Kill()
         end
+
+        if kb.RD.current_round == "constract" then
+            local respawnTime = CurTime() + 30
+            ply:SetNWFloat("RespawnTime", respawnTime) 
+            ply.NextRespawnTime = respawnTime
+        end
+        
     elseif teamID == 1002 then
         ply:ChatPrint("Ты стал наблюдателем.")
         ply:SetTeam(1002)

@@ -46,14 +46,22 @@ hook.Add("PlayerDeath", "CustomRespawn_Death", function(victim, inflictor, attac
             return
         end
 
-        local respawnTime = CurTime() + 30
-        victim:SetNWFloat("RespawnTime", respawnTime) 
-        victim.NextRespawnTime = respawnTime
+        if victim:Team() != 1002 then
+            local respawnTime = CurTime() + 30
+            victim:SetNWFloat("RespawnTime", respawnTime) 
+            victim.NextRespawnTime = respawnTime
+        end
     end
 end)
 
 hook.Add("PlayerDeathThink", "CustomRespawn_Think", function(ply)
-    if kb.RD.current_round == "constract" then 
+    if kb.RD.current_round == "constract" then
+
+        if ply:Team() == 1002 then
+            ply.NextRespawnTime = nil
+            ply:SetNWFloat("RespawnTime", 0)
+        end 
+
         if kb.RD.disable_respawn_time and CurTime() >= kb.RD.disable_respawn_time then
             if ply.NextRespawnTime then
                 ply.NextRespawnTime = nil

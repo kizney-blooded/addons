@@ -11,10 +11,20 @@ function spawn_construct_player(ply)
     ply:SetPlayerColor(Vector(math.random(1,255)/255,math.random(1,255)/255,math.random(1,255)/255))
 end
 
+constract_players = constract_players or {}
+
 function constract.StartRound()
+    constract_players = {}
     kb.RD.disable_respawn_time = CurTime() + 8900
     kb.RD.redzona_started = false
+
     for _ , ply in player.Iterator() do
+        if ply:Team() != 1002 then
+            table.insert(constract_players, ply)
+        end
+    end
+
+    for _ , ply in ipairs(constract_players) do
         ply:Spawn()
         spawn_construct_player(ply)
     end
@@ -30,7 +40,7 @@ function constract.LogicRound()
         end
 
         local alives = 0
-        for _ , ply in player.Iterator() do
+        for _ , ply in ipairs(constract_players) do
             if IsValid(ply) and ply:Alive() then
                 alives = alives + 1
             end

@@ -14,8 +14,19 @@ function GM:PlayerSpawn(ply,bool)
 
         ply:StripWeapons()
 
+        if ply:Team() == 1002 then
+            ply:SetModel("models/player/gman_high.mdl")
+            ply:SetPlayerColor(Vector(0.427,0.427,0.427))
+        end
+
         if kb.RD.current_round == "constract" then
-            spawn_construct_player(ply)
+
+            if ply:Team() == 1002 then
+                ply:SetModel("models/player/gman_high.mdl")
+                ply:SetPlayerColor(Vector(0.427,0.427,0.427))
+            else
+                spawn_construct_player(ply)
+            end
         end
 
         ply:RemoveAllAmmo()
