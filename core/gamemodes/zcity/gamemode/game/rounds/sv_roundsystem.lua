@@ -189,7 +189,6 @@ end)
 
 concommand.Add("levelend", function(ply, cmd, args)
     if IsValid(ply) and not ply:IsSuperAdmin() then 
-        ply:ChatPrint("У вас нет прав для использования этой команды.")
         return 
     end
 
@@ -198,7 +197,6 @@ end)
 
 concommand.Add("levelnext", function(ply, cmd, args)
     if IsValid(ply) and not ply:IsSuperAdmin() then 
-        ply:ChatPrint("У вас нет прав для использования этой команды.")
         return 
     end
 
@@ -219,7 +217,6 @@ end)
 
 concommand.Add("addbot", function(ply, cmd, args)
     if IsValid(ply) and not ply:IsSuperAdmin() then 
-        ply:ChatPrint("У вас нет прав для использования этой команды.")
         return 
     end
 
@@ -238,7 +235,6 @@ end)
 
 concommand.Add("kb", function(ply, cmd, args)
     if IsValid(ply) and not ply:IsSuperAdmin() then 
-        ply:ChatPrint("У вас нет прав для использования этой команды.")
         return 
     end
 
