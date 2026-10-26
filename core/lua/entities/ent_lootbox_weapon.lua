@@ -10,6 +10,7 @@ kb = kb or {}
 
 kb.Weapon_in_Lootboxes = {
     slots = 2,
+    respawn = 390,
     { class = "kb_pist_deagle", chance = 50 },
     { class = "kb_pist_fiveseven", chance = 40 },
     { class = "kb_pist_glock17", chance = 40 },

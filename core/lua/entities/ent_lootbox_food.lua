@@ -10,6 +10,7 @@ kb = kb or {}
 
 kb.Food_in_Lootboxes = {
     slots = 3,
+    respawn = 290,
     { class = "food_lays", chance = 50 },
     { class = "food_milk", chance = 40 },
     { class = "food_sok", chance = 40 },

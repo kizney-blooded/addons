@@ -10,6 +10,7 @@ kb = kb or {}
 
 kb.Melee_in_Lootboxes = {
     slots = 2,
+    respawn = 290,
     { class = "weapon_hg_crowbar", chance = 50 },
     { class = "weapon_hg_fireaxe", chance = 40 },
     { class = "weapon_hg_fubar", chance = 40 },
