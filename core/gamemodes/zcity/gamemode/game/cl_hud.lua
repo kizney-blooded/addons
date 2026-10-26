@@ -2,7 +2,6 @@ local textAlpha = 0
 local lastPlayerName = ""
 local lastPlayerColor = color_white
 
-
 hook.Add("HUDPaint", "player_targetid", function()
     local ply = LocalPlayer()
     if not IsValid(ply) then return end
@@ -14,11 +13,15 @@ hook.Add("HUDPaint", "player_targetid", function()
     local ent = tr.Entity
     local targetAlpha = 0
 
-    if IsValid(ent) and ent:IsPlayer() and tr.StartPos:Distance(tr.HitPos) <= 65 then
-        targetAlpha = 255
-        lastPlayerName = ent:Nick()
+    local is_player = IsValid(ent) and ent:IsPlayer()
+    local is_fake = IsValid(ent) and ent:GetClass() == "prop_ragdoll" and ent:GetNWString("FakePlayerName", "") != ""
 
-        local pColor = ent:GetPlayerColor()
+    if (is_player or is_fake) and tr.StartPos:Distance(tr.HitPos) <= 65 then
+        targetAlpha = 255
+        
+        lastPlayerName = is_player and ent:Nick() or ent:GetNWString("FakePlayerName")
+
+        local pColor = is_player and ent:GetPlayerColor() or ent:GetNWVector("PlayerColor")
         lastPlayerColor = Color(pColor.x * 255, pColor.y * 255, pColor.z * 255)
     end
 

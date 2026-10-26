@@ -40,6 +40,7 @@ function playermeta:create_fake(vel)
 
     self:SetNoDraw(true)
     self:SetSolid(SOLID_NONE)
+    self:SetCollisionGroup(COLLISION_GROUP_NONE)
     self:SetMoveType(MOVETYPE_NONE)
     self:SetNoTarget(true)
 
@@ -138,6 +139,7 @@ function playermeta:exit_fake()
     self.FakeRagdoll = nil
     self:SetNoDraw(false)
     self:SetSolid(SOLID_BBOX)
+    self:SetCollisionGroup(COLLISION_GROUP_PLAYER)
     self:SetMoveType(MOVETYPE_WALK)
     self:SetNoTarget(false)
 
@@ -154,6 +156,9 @@ end
 hook.Add("Think", "RagdollControl", function()
     for ply in pairs(ActiveFakes) do
         if IsValid(ply) and IsValid(ply.FakeRagdoll) then
+
+            ply:SetPos(ply.FakeRagdoll:GetPos())
+            
             hook.Run("FakeControl", ply, ply.FakeRagdoll)
         else
             ActiveFakes[ply] = nil
