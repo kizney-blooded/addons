@@ -54,7 +54,7 @@ function JMod.ArmorPlayerModelDraw(ply, nomerge)
 			end
 		end
 
-		if isClient and ArmorInfo.bon == "ValveBiped.Bip01_Head1" and targetEnt == ply then 
+		if isClient and ArmorInfo.bon == "ValveBiped.Bip01_Head1" and (targetEnt == ply or targetEnt == fakeRag) then
 			continue 
 		end
 
