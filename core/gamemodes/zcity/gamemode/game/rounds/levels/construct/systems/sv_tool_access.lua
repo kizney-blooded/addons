@@ -153,6 +153,7 @@ hook.Add("PlayerSpawnedSENT", "Shkaf_RegisterOwner", function(ply, ent)
             ply.MyShkaf:Remove()
         end
         ply.MyShkaf = ent
+        ent.ShkafOwner = ply
     end
 end)
 
@@ -186,6 +187,8 @@ hook.Add("PlayerSpawnedSENT", "Shkaf_CheckSENTSpawn", function(ply, ent)
 end)
 
 timer.Create("Shkaf_ZoneEnforcer", 1, 0, function()
+    local shkafs = ents.FindByClass("con_shkaf")
+
     for _, ent in ipairs(ents.GetAll()) do
         if ent.ShkafZoneProp and IsValid(ent.ShkafOwner) then
             local shkaf = ent.ShkafOwner.MyShkaf
@@ -198,6 +201,36 @@ timer.Create("Shkaf_ZoneEnforcer", 1, 0, function()
                     ent:Remove()
                     if IsValid(ent.ShkafOwner) then
                         ent.ShkafOwner:ChatPrint("Предмет удален: вынесен за пределы зоны!")
+                    end
+                end
+            end
+        end
+    end
+
+    for i = 1, #shkafs do
+        local myShkaf = shkafs[i]
+        if not IsValid(myShkaf) then continue end
+
+        local radius1 = myShkaf.RadiusZona or 1500
+        local minDistance = radius1 * 2
+
+        for j = 1, #shkafs do
+            if i == j then continue end
+            
+            local otherShkaf = shkafs[j]
+            if not IsValid(otherShkaf) then continue end
+
+            if myShkaf.ShkafOwner ~= otherShkaf.ShkafOwner then
+                if myShkaf:GetPos():DistToSqr(otherShkaf:GetPos()) < (minDistance ^ 2) then
+                    local phys = myShkaf:GetPhysicsObject()
+                    print(phys)
+                    if IsValid(phys) and not phys:IsAsleep() or myShkaf:IsPlayerHolding() then
+                        myShkaf:Remove()
+                        local owner = myShkaf.ShkafOwner
+                        if IsValid(owner) then
+                            owner:ChatPrint("Ваш шкаф был удален: вы перенесли его в чужую приватную зону!")
+                        end
+                        break
                     end
                 end
             end
