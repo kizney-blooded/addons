@@ -1,7 +1,24 @@
 hook.Add("SetupMove", "Stamina_Organism", function(ply, mv, cmd)
-    local walkSpeed = 115
-    local runSpeed = 300
-    local jumpPower = 200
+    local hp = ply:Health()
+    local walkSpeed, runSpeed, jumpPower
+    
+    if hp > 60 then
+        walkSpeed = 115
+        runSpeed = 300
+        jumpPower = 200
+    elseif hp > 40 then
+        walkSpeed = 85
+        runSpeed = 250
+        jumpPower = 150
+    elseif hp > 20 then
+        walkSpeed = 55
+        runSpeed = 150
+        jumpPower = 100
+    else
+        walkSpeed = 35
+        runSpeed = 80
+        jumpPower = 60
+    end
 
     local wep = ply:GetActiveWeapon()
     local isAiming = false
