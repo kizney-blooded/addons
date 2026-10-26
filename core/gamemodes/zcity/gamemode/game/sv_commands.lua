@@ -1,4 +1,5 @@
 hook.Add("PlayerSay","SpecialCommands",function(ply,text,team)
+    if not ply:IsSuperAdmin() then return end
     local command = string.lower(text)
 
     if command == "!res" or command == "!куы" or command == "!respawn" or command == "!куызфцт" then

@@ -130,6 +130,7 @@ hook.Add("Think","Logic", LogicRoundSV)
 -- команды
 
 hook.Add("PlayerSay","RoundCommands",function(ply,text,team)
+    if not ply:IsSuperAdmin() then return end
     local args = string.Explode(" ", text)
     local command = string.lower(args[1])
 
@@ -187,10 +188,20 @@ end)
 -- console
 
 concommand.Add("levelend", function(ply, cmd, args)
+    if IsValid(ply) and not ply:IsSuperAdmin() then 
+        ply:ChatPrint("У вас нет прав для использования этой команды.")
+        return 
+    end
+
     EndRoundSV("Скип раунда")
 end)
 
 concommand.Add("levelnext", function(ply, cmd, args)
+    if IsValid(ply) and not ply:IsSuperAdmin() then 
+        ply:ChatPrint("У вас нет прав для использования этой команды.")
+        return 
+    end
+
     local next_mode = args[1] 
     
     if next_mode then
@@ -200,13 +211,18 @@ concommand.Add("levelnext", function(ply, cmd, args)
     else
         if IsValid(ply) then
             ply:ChatPrint("Использование: levelnext название")
-        else
+        else1
             print("Использование: levelnext название")
         end
     end
 end)
 
 concommand.Add("addbot", function(ply, cmd, args)
+    if IsValid(ply) and not ply:IsSuperAdmin() then 
+        ply:ChatPrint("У вас нет прав для использования этой команды.")
+        return 
+    end
+
     local count = tonumber(args[1]) or 1
 
     for i = 1, count do
@@ -221,6 +237,11 @@ concommand.Add("addbot", function(ply, cmd, args)
 end)
 
 concommand.Add("kb", function(ply, cmd, args)
+    if IsValid(ply) and not ply:IsSuperAdmin() then 
+        ply:ChatPrint("У вас нет прав для использования этой команды.")
+        return 
+    end
+
     local count = tonumber(args[1])
     local bots = player.GetBots()
 
