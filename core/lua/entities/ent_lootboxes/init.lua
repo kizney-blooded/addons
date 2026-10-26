@@ -59,3 +59,32 @@ function ENT:Use(activator, caller)
         net.WriteBool(false)
     net.Send(activator)
 end
+
+function ENT:OnRemove()
+    if kb and kb.RD and kb.RD.current_round == "constract" then
+        local my_loot = self.LootTable or kb.Item_in_Lootboxes
+        local respawn_time = my_loot.respawn or 70
+
+        if self.SpawnIndex and self.SpawnType then
+            local sIndex = self.SpawnIndex
+            local sType = self.SpawnType
+            local eClass = self:GetClass()
+            
+            timer.Create("KB_RespawnBox_" .. sType .. "_" .. sIndex, respawn_time, 1, function()
+                if kb.RD.current_round ~= "constract" then return end
+                
+                if KB_SPAWNPOINTS and KB_SPAWNPOINTS[sType] and KB_SPAWNPOINTS[sType][sIndex] then
+                    local pos = KB_SPAWNPOINTS[sType][sIndex]
+                    
+                    local ent = ents.Create(eClass)
+                    if IsValid(ent) then
+                        ent:SetPos(pos)
+                        ent.SpawnIndex = sIndex
+                        ent.SpawnType = sType
+                        ent:Spawn()
+                    end
+                end
+            end)
+        end
+    end
+end

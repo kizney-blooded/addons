@@ -146,20 +146,24 @@ if SERVER then
 
     function spawn_lootboxes()
         if KB_SPAWNPOINTS["lootboxes"] then
-            for _, pos in ipairs(KB_SPAWNPOINTS["lootboxes"]) do
+            for idx, pos in ipairs(KB_SPAWNPOINTS["lootboxes"]) do
                 local ent = ents.Create("ent_lootboxes")
                 if IsValid(ent) then
                     ent:SetPos(pos)
+                    ent.SpawnIndex = idx
+                    ent.SpawnType = "lootboxes"
                     ent:Spawn()
                 end
             end
         end
 
         if KB_SPAWNPOINTS["food_lootboxes"] then
-            for _, pos in ipairs(KB_SPAWNPOINTS["food_lootboxes"]) do
+            for idx, pos in ipairs(KB_SPAWNPOINTS["food_lootboxes"]) do
                 local ent = ents.Create("ent_lootbox_food")
                 if IsValid(ent) then
                     ent:SetPos(pos)
+                    ent.SpawnIndex = idx
+                    ent.SpawnType = "food_lootboxes"
                     ent:Spawn()
                 end
             end
