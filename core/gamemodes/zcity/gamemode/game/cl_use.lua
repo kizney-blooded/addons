@@ -16,8 +16,8 @@ local function GetAimedEntity()
     local ply = LocalPlayer()
     if not IsValid(ply) then return nil end
 
-    local startPos = main_origin
-    local angles = main_angles
+    local startPos = main_origin or EyePos()
+    local angles = main_angles or EyeAngles()
     local aimVector = angles:Forward()
 
     local tr = util.TraceLine({

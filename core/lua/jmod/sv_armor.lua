@@ -496,6 +496,7 @@ function JMod.RemoveArmorByID(ply, ID, broken)
 		Ent.EZID = ID
 		Ent:SetColor(Info.col)
 		Ent:Spawn()
+		Ent:SetCollisionGroup(COLLISION_GROUP_WORLD)
 		Ent:Activate()
 		Ent:GetPhysicsObject():SetVelocity(ply:GetVelocity())
 	end
