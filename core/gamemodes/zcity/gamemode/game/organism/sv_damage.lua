@@ -65,9 +65,12 @@ end
 local function process_hitgroup_damage(ent, hitgroup, damage, pos)
     if not ent.HitGroupHP or not ent.HitGroupHP[hitgroup] then return end
     
-    ent.HitGroupHP[hitgroup].hp = ent.HitGroupHP[hitgroup].hp - damage
+    local old_hp = ent.HitGroupHP[hitgroup].hp
+    local trigger = ent.HitGroupHP[hitgroup].effect
     
-    if hitgroup == HITGROUP_HEAD and ent.HitGroupHP[hitgroup].hp <= ent.HitGroupHP[hitgroup].effect then
+    ent.HitGroupHP[hitgroup].hp = math.max(0, old_hp - damage)
+    
+    if hitgroup == HITGROUP_HEAD and old_hp > trigger and ent.HitGroupHP[hitgroup].hp <= trigger then
         net.Start("headshot_effect")
             net.WriteVector(pos)
         net.Broadcast() 
@@ -223,4 +226,14 @@ hook.Add("PlayerSpawn","ResetOrganism",function(ply,bool)
         ply:SetNWBool("Otrub", false)
         ply.HitGroupHP = table.Copy(kb.HitGroupHP)
     end
+end)
+
+hook.Add("OnEntityCreated", "KB_InitSpawnedRagdollsHP", function(ent)
+    timer.Simple(0, function()
+        if IsValid(ent) and ent:GetClass() == "prop_ragdoll" then
+            if not ent.HitGroupHP then
+                ent.HitGroupHP = table.Copy(kb.HitGroupHP)
+            end
+        end
+    end)
 end)
