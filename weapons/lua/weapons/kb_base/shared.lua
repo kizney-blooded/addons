@@ -55,6 +55,7 @@ end
 
 function SWEP:PrimaryAttack()
     local owner = self:GetOwner()
+    if owner:GetNWBool("Otrub") then return end
 
     if self:Clip1() <= 0 then
         self:EmitSound("Weapon_Pistol.Empty")
@@ -83,6 +84,8 @@ end
 function SWEP:Reload()
     local owner = self:GetOwner()
     if not IsValid(owner) then return end
+
+    if owner:GetNWBool("Otrub") then return end
 
     if self:Clip1() >= self.Primary.ClipSize or owner:GetAmmoCount(self.Primary.Ammo) <= 0 then return end
     
