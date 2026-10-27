@@ -60,6 +60,8 @@ function playermeta:create_fake(vel)
 
         rag.FakePlayer = self
 
+        rag.HitGroupHP = self.HitGroupHP or table.Copy(kb.HitGroupHP)
+
         --print(rag.FakePlayer)
 
         local bullseye = ents.Create("npc_bullseye")
@@ -128,6 +130,8 @@ function playermeta:exit_fake()
     if IsValid(rag) then
         local rag_pos = rag:GetPos()
         local rag_ang = rag:GetAngles()
+
+        self.HitGroupHP = rag.HitGroupHP or self.HitGroupHP
 
         rag:Remove()
 

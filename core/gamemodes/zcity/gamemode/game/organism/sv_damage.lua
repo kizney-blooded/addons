@@ -62,8 +62,12 @@ function otrub_system(ply, damage, hitgroup)
     end
 end
 
-local function effect_on_damage(hitgroup, damage, pos)
-    if hitgroup == HITGROUP_HEAD and damage >= 30 then
+local function process_hitgroup_damage(ent, hitgroup, damage, pos)
+    if not ent.HitGroupHP or not ent.HitGroupHP[hitgroup] then return end
+    
+    ent.HitGroupHP[hitgroup].hp = ent.HitGroupHP[hitgroup].hp - damage
+    
+    if hitgroup == HITGROUP_HEAD and ent.HitGroupHP[hitgroup].hp <= ent.HitGroupHP[hitgroup].effect then
         net.Start("headshot_effect")
             net.WriteVector(pos)
         net.Broadcast() 
@@ -77,7 +81,7 @@ hook.Add("ScalePlayerDamage", "KB_HitGroupScale", function(ply, hitgroup, dmginf
     end
     
     local final_damage = dmginfo:GetDamage()
-    effect_on_damage(hitgroup, final_damage, dmginfo:GetDamagePosition())
+    process_hitgroup_damage(ply, hitgroup, final_damage, dmginfo:GetDamagePosition())
     
     otrub_system(ply, final_damage, hitgroup)
     
@@ -146,7 +150,7 @@ hook.Add("Ragdoll Collide", "RagdollDamage", function(rag, data)
             
             ply:TakeDamageInfo(dmginfo)
             
-            effect_on_damage(current_hitgroup, damageAmount, data.HitPos)
+            process_hitgroup_damage(rag, current_hitgroup, damageAmount, data.HitPos)
 
             otrub_system(ply, damageAmount, current_hitgroup)
             
@@ -157,52 +161,51 @@ hook.Add("Ragdoll Collide", "RagdollDamage", function(rag, data)
 end)
 
 hook.Add("EntityTakeDamage", "Ragdoll_Damage_From_Player", function(ent, dmginfo)
-    if IsValid(ent) and IsValid(ent.FakePlayer) then
-        local ply = ent.FakePlayer
-
+    if IsValid(ent) and ent.HitGroupHP then
         if dmginfo:IsDamageType(DMG_CRUSH) or dmginfo:IsDamageType(DMG_FALL) then
             return
         end
 
-        if ply:Alive() then
-            local dmgPos = dmginfo:GetDamagePosition()
-            local scale = 1.0
-            local current_hitgroup = HITGROUP_GENERIC
-            
-            if not dmgPos:IsZero() then
-                local closestPhysBone = -1
-                local closestDist = math.huge
+        local dmgPos = dmginfo:GetDamagePosition()
+        local scale = 1.0
+        local current_hitgroup = HITGROUP_GENERIC
+        
+        if not dmgPos:IsZero() then
+            local closestPhysBone = -1
+            local closestDist = math.huge
 
-                for i = 0, ent:GetPhysicsObjectCount() - 1 do
-                    local phys = ent:GetPhysicsObjectNum(i)
-                    if IsValid(phys) then
-                        local dist = phys:GetPos():DistToSqr(dmgPos)
-                        if dist < closestDist then
-                            closestDist = dist
-                            closestPhysBone = i
-                        end
-                    end
-                end
-
-                if closestPhysBone >= 0 then
-                    local boneIndex = ent:TranslatePhysBoneToBone(closestPhysBone)
-                    if boneIndex then
-                        local boneName = ent:GetBoneName(boneIndex)
-                        if boneName then
-                            local hitgroup = kb.BoneHitGroups[boneName]
-                            if hitgroup and kb.HitGroupDamage[hitgroup] then
-                                scale = kb.HitGroupDamage[hitgroup]
-                                current_hitgroup = hitgroup
-                            end
-                        end
+            for i = 0, ent:GetPhysicsObjectCount() - 1 do
+                local phys = ent:GetPhysicsObjectNum(i)
+                if IsValid(phys) then
+                    local dist = phys:GetPos():DistToSqr(dmgPos)
+                    if dist < closestDist then
+                        closestDist = dist
+                        closestPhysBone = i
                     end
                 end
             end
 
-            dmginfo:ScaleDamage(scale)
-            ply:TakeDamageInfo(dmginfo)
-            
-            effect_on_damage(current_hitgroup, dmginfo:GetDamage(), dmgPos)
+            if closestPhysBone >= 0 then
+                local boneIndex = ent:TranslatePhysBoneToBone(closestPhysBone)
+                if boneIndex then
+                    local boneName = ent:GetBoneName(boneIndex)
+                    if boneName then
+                        local hitgroup = kb.BoneHitGroups[boneName]
+                        if hitgroup and kb.HitGroupDamage[hitgroup] then
+                            scale = kb.HitGroupDamage[hitgroup]
+                            current_hitgroup = hitgroup
+                        end
+                    end
+                end
+            end
+        end
+
+        dmginfo:ScaleDamage(scale)
+        
+        process_hitgroup_damage(ent, current_hitgroup, dmginfo:GetDamage(), dmgPos)
+
+        if IsValid(ent.FakePlayer) and ent.FakePlayer:Alive() then
+            ent.FakePlayer:TakeDamageInfo(dmginfo)
         end
     end
 end)
@@ -218,5 +221,6 @@ end)
 hook.Add("PlayerSpawn","ResetOrganism",function(ply,bool)
     if IsValid(ply) then
         ply:SetNWBool("Otrub", false)
+        ply.HitGroupHP = table.Copy(kb.HitGroupHP)
     end
 end)
