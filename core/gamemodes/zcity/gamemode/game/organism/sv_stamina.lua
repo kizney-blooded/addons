@@ -1,6 +1,8 @@
+local walkSpeed, runSpeed, jumpPower
+local hp
+
 hook.Add("SetupMove", "Stamina_Organism", function(ply, mv, cmd)
-    local hp = ply:Health()
-    local walkSpeed, runSpeed, jumpPower
+    hp = ply:Health()
     
     if hp > 60 then
         walkSpeed = 115
