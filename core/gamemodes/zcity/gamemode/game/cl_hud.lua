@@ -16,6 +16,10 @@ hook.Add("HUDPaint", "player_targetid", function()
     local is_player = IsValid(ent) and ent:IsPlayer()
     local is_fake = IsValid(ent) and ent:GetClass() == "prop_ragdoll" and ent:GetNWString("FakePlayerName", "") != ""
 
+    if is_fake and ent == ply:GetNWEntity("FakeRagdoll") then
+        is_fake = false
+    end
+
     if (is_player or is_fake) and tr.StartPos:Distance(tr.HitPos) <= 65 then
         targetAlpha = 255
         

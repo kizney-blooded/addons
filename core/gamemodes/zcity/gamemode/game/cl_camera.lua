@@ -11,6 +11,10 @@ local blacklist_weps = {
     ["gmod_tool"] = true,
 }
 
+local c_pos_model = {
+    ["models/newtab/plotagoncaillou.mdl"] = Vector(6, 0, 0),
+}
+
 hook.Add( "CalcView", "MyCalcView", function( ply, pos, angles, fov )
 
     local set_fov = 100
@@ -48,6 +52,16 @@ hook.Add( "CalcView", "MyCalcView", function( ply, pos, angles, fov )
 
     local set_origin = ply:Alive() and eyes and eyes.Pos or pos
 
+    local current_target = IsValid(ply:GetNWEntity("FakeRagdoll")) and ply:GetNWEntity("FakeRagdoll") or ply
+    local mdl = current_target:GetModel()
+    
+    if c_pos_model[mdl] then
+        local offset = c_pos_model[mdl]
+        set_origin = set_origin + (result_angle:Forward() * offset.x) 
+                                + (result_angle:Right() * offset.y) 
+                                + (result_angle:Up() * offset.z)
+    end
+
     local wep = ply:GetActiveWeapon()
 
     if IsValid(wep) and blacklist_weps[wep:GetClass()] then 
@@ -58,6 +72,10 @@ hook.Add( "CalcView", "MyCalcView", function( ply, pos, angles, fov )
             drawviewer = false,
             znear = 1
         } 
+
+        main_origin = view.origin
+        main_angles = view.angles
+
         return view
     end
 

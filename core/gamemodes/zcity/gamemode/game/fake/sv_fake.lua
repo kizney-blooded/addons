@@ -60,7 +60,7 @@ function playermeta:create_fake(vel)
 
         rag.FakePlayer = self
 
-        print(rag.FakePlayer)
+        --print(rag.FakePlayer)
 
         local bullseye = ents.Create("npc_bullseye")
         local bodyphy = rag:GetPhysicsObjectNum(10)
@@ -167,12 +167,26 @@ hook.Add("Think", "RagdollControl", function()
 end)
 
 concommand.Add("fake",function(ply)
-    local rag = ply.FakeRagdoll
     if not ply:Alive() then return end
+
+    ply.FakeCooldown = ply.FakeCooldown or 0
+    if CurTime() < ply.FakeCooldown then return end
+
+    local rag = ply.FakeRagdoll
     if not IsValid(rag) then
         ply:create_fake()
+        ply.FakeCooldown = CurTime() + 1.2
     else
-        ply:exit_fake()
+        local tr = util.TraceLine({
+            start = rag:GetPos(),
+            endpos = rag:GetPos() - Vector(0, 0, 50),
+            filter = {ply, rag}
+        })
+
+        if tr.Hit then
+            ply:exit_fake()
+            ply.FakeCooldown = CurTime() + 1.2
+        end
     end
 end)
 
@@ -253,4 +267,14 @@ hook.Add("DoPlayerDeath","DeathFake",function(ply,inf,att)
 
     ply:SetNWEntity("FakeRagdoll", NULL)
     ply.FakeRagdoll = nil
+end)
+
+hook.Add("PlayerTick", "KB_DetectPlayerImpact", function(ply, mv)
+    if not ply:Alive() or IsValid(ply.FakeRagdoll) or ply:GetMoveType() == MOVETYPE_NOCLIP or ply:GetMoveType() == MOVETYPE_LADDER then 
+        return 
+    end
+
+    if not ply:IsOnGround() and ply:GetVelocity():Length() > 500 then
+        ply:create_fake()
+    end
 end)
