@@ -44,6 +44,24 @@ kb.HitGroupHP = {
 
 util.AddNetworkString("headshot_effect")
 
+function otrub_system(ply, damage, hitgroup)
+    if not IsValid(ply) then return end
+    
+    if damage > 20 then
+        if not IsValid(ply.FakeRagdoll) then
+            ply:create_fake()
+        end
+        ply:SetNWBool("Otrub", true)
+        
+        local timerName = "OtrubTimer_" .. ply:SteamID64()
+        timer.Create(timerName, 10, 1, function()
+            if IsValid(ply) then
+                ply:SetNWBool("Otrub", false)
+            end
+        end)
+    end
+end
+
 local function effect_on_damage(hitgroup, damage, pos)
     if hitgroup == HITGROUP_HEAD and damage >= 30 then
         net.Start("headshot_effect")
@@ -58,7 +76,10 @@ hook.Add("ScalePlayerDamage", "KB_HitGroupScale", function(ply, hitgroup, dmginf
         dmginfo:ScaleDamage(scale)
     end
     
-    effect_on_damage(hitgroup, dmginfo:GetDamage(), dmginfo:GetDamagePosition())
+    local final_damage = dmginfo:GetDamage()
+    effect_on_damage(hitgroup, final_damage, dmginfo:GetDamagePosition())
+    
+    otrub_system(ply, final_damage, hitgroup)
     
     return false
 end)
@@ -126,6 +147,8 @@ hook.Add("Ragdoll Collide", "RagdollDamage", function(rag, data)
             ply:TakeDamageInfo(dmginfo)
             
             effect_on_damage(current_hitgroup, damageAmount, data.HitPos)
+
+            otrub_system(ply, damageAmount, current_hitgroup)
             
             rag.NextDamageTime = CurTime() + cd
             rag:EmitSound("Flesh.ImpactHard")
@@ -181,5 +204,19 @@ hook.Add("EntityTakeDamage", "Ragdoll_Damage_From_Player", function(ent, dmginfo
             
             effect_on_damage(current_hitgroup, dmginfo:GetDamage(), dmgPos)
         end
+    end
+end)
+
+
+hook.Add("DoPlayerDeath","ResetOrganismV2",function(ply,att,dmg)
+    if IsValid(ply) then
+        ply:SetNWBool("Otrub", false)
+    end
+end)
+
+
+hook.Add("PlayerSpawn","ResetOrganism",function(ply,bool)
+    if IsValid(ply) then
+        ply:SetNWBool("Otrub", false)
     end
 end)

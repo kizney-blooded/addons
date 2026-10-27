@@ -115,6 +115,8 @@ hook.Add("FakeControl", "Control_fake", function(ply, rag)
     local wep = ply:GetActiveWeapon()
     local has_tpik = IsValid(wep) and wep.SupportTPIK and wep:GetClass() != "weapon_hands"
 
+    if ply:GetNWBool("Otrub") then return end
+
     if ply:KeyDown(IN_USE) or has_tpik then
         local angs = ply:EyeAngles()
         angs:RotateAroundAxis(angs:Forward(), 0)

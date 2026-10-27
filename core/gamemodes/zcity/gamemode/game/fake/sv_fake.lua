@@ -168,6 +168,7 @@ end)
 
 concommand.Add("fake",function(ply)
     if not ply:Alive() then return end
+    if ply:GetNWBool("Otrub") then return end
 
     ply.FakeCooldown = ply.FakeCooldown or 0
     if CurTime() < ply.FakeCooldown then return end

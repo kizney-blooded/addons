@@ -354,6 +354,8 @@ hook.Add("PreDrawOpaqueRenderables", "kb_TPIK_Ragdoll_Draw", function(isDrawingD
 
     for _, ply in player.Iterator() do
         local rag = ply:GetNWEntity("FakeRagdoll")
+
+        if ply:GetNWBool("Otrub") then return end
         
         if IsValid(rag) or (ply:GetNoDraw() and ply:Alive()) then
             local wpn = ply:GetActiveWeapon()

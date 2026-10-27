@@ -1,3 +1,63 @@
+local current_alpha = 0
+local fade_speed = 100
+local dsp_applied = false
+
+hook.Add("Think", "Otrub_DSP_Effect", function()
+    local ply = LocalPlayer()
+    if not IsValid(ply) then return end
+
+    if ply:Alive() and ply:GetNWBool("Otrub") then
+        if not dsp_applied then
+            ply:SetDSP(21)
+            dsp_applied = true
+        end
+    else
+
+        if dsp_applied then
+            ply:SetDSP(0)
+            dsp_applied = false
+        end
+    end
+end)
+
+--[[concommand.Add("set_dsp", function(ply, cmd, args)
+    if not args[1] then
+        return
+    end
+
+    local dsp_id = tonumber(args[1])
+
+    if not dsp_id then
+        return
+    end
+
+    if IsValid(ply) then
+        ply:SetDSP(dsp_id)
+        print(dsp_id)
+    end
+end)--]]
+
+hook.Add("HUDPaint", "Otrub_ScreenDarken", function()
+    local ply = LocalPlayer()
+    if not IsValid(ply) then return end
+    if not ply:Alive() then
+        return
+    end
+
+    if ply:GetNWBool("Otrub") then
+        current_alpha = 255
+    else
+        if current_alpha > 0 then
+            current_alpha = math.Approach(current_alpha, 0, FrameTime() * fade_speed)
+        end
+    end
+
+    if current_alpha > 0 then
+        surface.SetDrawColor(0, 0, 0, current_alpha)
+        surface.DrawRect(0, 0, ScrW(), ScrH())
+    end
+end)
+
 net.Receive("headshot_effect", function()
     local pos = net.ReadVector()
     
