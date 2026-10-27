@@ -31,18 +31,23 @@ function SWEP:ShootBullets( damage, num_bullets, aimcone )
     local src, dir
     local rag = owner:GetNWEntity("FakeRagdoll")
 
-    if CLIENT then
-        src = main_origin
-        dir = main_angles:Forward()
-    else
-        if IsValid(rag) then
-            local att = rag:GetAttachment(rag:LookupAttachment("eyes"))
-            src = att and att.Pos or owner:GetShootPos()
-        else
-            src = owner:GetShootPos()
+    if IsValid(rag) then
+        local att_id = rag:LookupAttachment("eyes")
+        if att_id > 0 then
+            src = rag:GetAttachment(att_id).Pos
+        --else
+            --src = rag:GetPos()
         end
-        dir = owner:EyeAngles():Forward()
+    else
+        local eye_att = owner:LookupAttachment("eyes")
+        if eye_att > 0 then
+            src = owner:GetAttachment(eye_att).Pos
+        --else
+            --src = owner:GetShootPos()
+        end
     end
+    
+    dir = owner:EyeAngles():Forward()
 
     local bullet = {}
     bullet.Num 		= num_bullets
@@ -58,8 +63,12 @@ function SWEP:ShootBullets( damage, num_bullets, aimcone )
     if IsValid(rag) then
         bullet.IgnoreEntity = rag
     end
+
+    owner:LagCompensation(true)
  
     owner:FireBullets( bullet )
+
+    owner:LagCompensation(false)
 
     if IsFirstTimePredicted() then
         local recoil = self.RecoilCamShot or 1.5
