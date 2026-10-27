@@ -119,6 +119,7 @@ return true
 end
 
 function SWEP:PrimaryAttack()
+	if self:GetOwner():GetNWBool("Otrub") then return end
 	self:GetOwner():SetAnimation( PLAYER_ATTACK1 )
 	self:SetNextPrimaryFire( CurTime() + self.Primary.Delay/((self:GetOwner().stamina or 100)/100)-(self:GetOwner():GetNWInt("Adrenaline")/5) )
 
