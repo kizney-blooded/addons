@@ -47,7 +47,7 @@ util.AddNetworkString("headshot_effect")
 function otrub_system(ply, damage, hitgroup)
     if not IsValid(ply) then return end
     
-    if damage > 20 then
+    if damage > (ply:GetMaxHealth() / 2) then
         if not IsValid(ply.FakeRagdoll) then
             ply:create_fake()
         end

@@ -69,7 +69,7 @@ function SWEP:PrimaryAttack()
         
         if isSprinting then return end
     end
-
+    
     self:PlayAnimation("fire")
     self:TakePrimaryAmmo(1)
 
