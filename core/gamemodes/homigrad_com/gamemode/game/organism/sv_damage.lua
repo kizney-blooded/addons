@@ -164,6 +164,14 @@ hook.Add("Ragdoll Collide", "RagdollDamage", function(rag, data)
 end)
 
 hook.Add("EntityTakeDamage", "Ragdoll_Damage_From_Player", function(ent, dmginfo)
+    local attacker = dmginfo:GetAttacker()
+
+    if IsValid(attacker) and attacker:IsNPC() then
+        
+        dmginfo:ScaleDamage(2) 
+        
+    end
+
     if IsValid(ent) and ent.HitGroupHP then
         if dmginfo:IsDamageType(DMG_CRUSH) or dmginfo:IsDamageType(DMG_FALL) then
             return
