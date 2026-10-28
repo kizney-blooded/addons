@@ -2,12 +2,12 @@ AddCSLuaFile()
 
 DeriveGamemode("sandbox")
 
-GM.Name = "ZCITY KAKAHA 123"
+GM.Name = "KIZNEY`S BOX | Homicide"
 GM.Author = "Kizney Blooded"
 
 include("includer.lua")
 
-inc("zcity/gamemode/game")
+inc("homigrad_com/gamemode/game")
 
 function GM:PlayerLoadout(ply) return false end
 
