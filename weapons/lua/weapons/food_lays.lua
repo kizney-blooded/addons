@@ -10,6 +10,8 @@ SWEP.HoldType = "slam"
 
 SWEP.WorldModel = "models/foodnhouseholditems/chipslays5.mdl"
 
+SWEP.CroshkaColor = Color(255, 199, 94)
+
 SWEP.IconPos = { Pos = Vector(8.16, 0.00, -3.00), Ang = Angle(90.00, 78.37, -97.96), FOV = 120.00 }
 
 SWEP.WMPos = Vector(5, 2, 0) 

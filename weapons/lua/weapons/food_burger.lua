@@ -10,6 +10,8 @@ SWEP.HoldType = "slam"
 
 SWEP.WorldModel = "models/foodnhouseholditems/burgersims2.mdl"
 
+SWEP.CroshkaColor = Color(143, 95, 6)
+
 SWEP.IconPos = { Pos = Vector(8.16, 0.00, -1.00), Ang = Angle(-22.04, -24.49, 2.45), FOV = 90.00 }
 
 

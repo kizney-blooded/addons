@@ -14,6 +14,8 @@ SWEP.Secondary.ClipSize = -1
 SWEP.Secondary.DefaultClip = -1
 SWEP.Secondary.Ammo = "none"
 
+--SWEP.CroshkaColor = Color(255, 200, 100)
+
 --[[SWEP.IconPos = { Pos = Vector(8.16, 0.00, -3.00), Ang = Angle(90.00, 78.37, -97.96), FOV = 130.00 }
 
 SWEP.WMPos = Vector(5, 2, 0) 
@@ -82,6 +84,15 @@ function SWEP:PrimaryAttack()
         local yaw = math.Rand(-3, 3)
         local roll = math.Rand(-1, 1)
         owner:ViewPunch(Angle(pitch, yaw, roll))
+        
+        local effectdata = EffectData()
+        local pos = owner:GetShootPos() + owner:GetAimVector() * 15
+        effectdata:SetOrigin(pos)
+        
+        local col = self.CroshkaColor or Color(255, 255, 255)
+        effectdata:SetStart(Vector(col.r, col.g, col.b))
+        
+        util.Effect("EatCrumbsEffect", effectdata)
     end
 
     if SERVER and self:Clip1() <= 0 then
@@ -163,4 +174,39 @@ function SWEP:DrawWorldModel()
     self:SetRenderOrigin(nil)
     self:SetRenderAngles(nil)
     self:DrawModel()
+end
+
+if CLIENT then
+    local EFFECT = {}
+    
+    function EFFECT:Init(data)
+        local pos = data:GetOrigin()
+        local color = data:GetStart()
+        
+        local emitter = ParticleEmitter(pos)
+        if not IsValid(emitter) then return end
+        
+        for i = 1, math.random(3, 5) do
+            local part = emitter:Add("particle/particle_smokegrenade", pos + VectorRand() * 2)
+            if part then
+                part:SetVelocity(Vector(math.Rand(-15, 15), math.Rand(-15, 15), math.Rand(-20, -50)))
+                part:SetDieTime(math.Rand(1.5, 3))
+                part:SetStartAlpha(255)
+                part:SetEndAlpha(255)
+                part:SetStartSize(math.Rand(2, 3))
+                part:SetEndSize(1)
+                part:SetColor(color.x, color.y, color.z)
+                part:SetGravity(Vector(0, 0, -250))
+                part:SetCollide(true)
+                part:SetBounce(0.3)
+            end
+        end
+        
+        emitter:Finish()
+    end
+    
+    function EFFECT:Think() return false end
+    function EFFECT:Render() end
+    
+    effects.Register(EFFECT, "EatCrumbsEffect")
 end
