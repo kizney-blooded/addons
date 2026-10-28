@@ -80,3 +80,57 @@ hook.Add("PlayerDeathThink", "CustomRespawn_Think", function(ply)
     
     return false 
 end)
+
+
+local function GetNextAlivePlayer(spectator, direction)
+    local alivePlayers = {}
+    
+    for _, v in ipairs(player.GetAll()) do
+        if v:Alive() and v != spectator then
+            table.insert(alivePlayers, v)
+        end
+    end
+
+    if #alivePlayers == 0 then return nil end
+
+    local currentTarget = spectator:GetObserverTarget()
+    local currentIndex = 0
+
+    if IsValid(currentTarget) then
+        for i, v in ipairs(alivePlayers) do
+            if v == currentTarget then
+                currentIndex = i
+                break
+            end
+        end
+    end
+
+    local nextIndex = currentIndex + direction
+    
+    if nextIndex > #alivePlayers then 
+        nextIndex = 1 
+    elseif nextIndex < 1 then 
+        nextIndex = #alivePlayers 
+    end
+
+    return alivePlayers[nextIndex]
+end
+
+hook.Add("PlayerButtonDown", "SpectatorSwitchTarget", function(ply, button)
+    if not ply:Alive() and ply:GetObserverMode() == OBS_MODE_CHASE then
+        
+        if button == MOUSE_LEFT then
+            local target = GetNextAlivePlayer(ply, 1)
+            if IsValid(target) then
+                ply:SpectateEntity(target)
+            end
+            
+        elseif button == MOUSE_RIGHT then
+            local target = GetNextAlivePlayer(ply, -1)
+            if IsValid(target) then
+                ply:SpectateEntity(target)
+            end
+        end
+        
+    end
+end)
