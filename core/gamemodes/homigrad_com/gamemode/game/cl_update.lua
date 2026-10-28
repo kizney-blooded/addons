@@ -1,4 +1,4 @@
-local UPDATE_VERSION = "v0.01" 
+local UPDATE_VERSION = "v0.02" 
 local COOKIE_NAME = "Kizney`s Box " .. UPDATE_VERSION
 
 if IsValid(ActiveMenuFrame) then 
@@ -57,8 +57,14 @@ local function ShowUpdateMenu( forceShow )
 
     AddTextInfo("Бинды на сервере: \n", color_white)
 
-    AddTextInfo("Падать в регдолл - bind кнопка fake", color_white)
-    AddTextInfo("Сменить скин на себе - (C - PlayerModel)", color_white)
+    AddTextInfo("Падать в регдолл - bind кнопка fake\n", color_white)
+    AddTextInfo("Изменения 28.10.26:\n", color_white)
+
+    AddTextInfo("+ Исправил отрисовку TPIK", color_white)
+    AddTextInfo("+ Добавил модифицированную очистку сервера", color_white)
+    AddTextInfo("+ Добавил крошки при кушание еды", color_white)
+    AddTextInfo("+ Эффекты взрывы головы лучше стало", color_white)
+    AddTextInfo("+ Добавил пинок (bind кнопка kb_kick)", color_white)
 
     local bottomPanel = vgui.Create("DPanel", ActiveMenuFrame)
     bottomPanel:Dock(BOTTOM)
