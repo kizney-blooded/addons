@@ -1,12 +1,6 @@
 function SWEP:Initialize()
     self:PlayAnimation("idle")
     self:SetHoldType(self.HoldType)
-    if CLIENT then
-        local wm = ClientsideModel(self.WorldModel)
-        wm:SetNoDraw(true)
-        wm.slottbl = {}
-        self.WModel = { wm } 
-    end
 end
 
 function SWEP:OnRemove()
@@ -49,22 +43,34 @@ if CLIENT then
             pos, ang = self:RotateAroundPoint(pos, ang, pivotPoint, offsetPos, finalOffsetAng)
         else
             local rag = owner:GetNWEntity("FakeRagdoll")
-            local target = IsValid(rag) and rag or owner
+            local isFake = IsValid(rag)
+            local target = isFake and rag or owner
             
-            local boneid = target:LookupBone("ValveBiped.Bip01_Spine4")
+            local targetBone = isFake and "ValveBiped.Bip01_Head1" or "ValveBiped.Bip01_Spine4"
+            local boneid = target:LookupBone(targetBone)
+            
             if boneid then
-                target:SetupBones()
-                local matrix = target:GetBoneMatrix(boneid)
+                local matrix = target:GetBoneMatrix(boneid)                
                 if matrix then
                     pos = matrix:GetTranslation()
                     ang = matrix:GetAngles()
 
-                    local offset = self.WorldPos
-                    if offset then
-                        pos = pos + ang:Forward() * offset.Pos.x + ang:Right() * offset.Pos.y + ang:Up() * offset.Pos.z
-                        ang:RotateAroundAxis(ang:Up(), offset.Ang.y)
-                        ang:RotateAroundAxis(ang:Right(), offset.Ang.p)
-                        ang:RotateAroundAxis(ang:Forward(), offset.Ang.r)
+                    if isFake then
+                        local fakePosOffset = Vector(0, -4, -1)
+                        local fakeAngOffset = Angle(0, -90, -90)
+                        
+                        pos = pos + ang:Forward() * fakePosOffset.x + ang:Right() * fakePosOffset.y + ang:Up() * fakePosOffset.z
+                        ang:RotateAroundAxis(ang:Up(), fakeAngOffset.y)
+                        ang:RotateAroundAxis(ang:Right(), fakeAngOffset.p)
+                        ang:RotateAroundAxis(ang:Forward(), fakeAngOffset.r)
+                    else
+                        local offset = self.WorldPos
+                        if offset then
+                            pos = pos + ang:Forward() * offset.Pos.x + ang:Right() * offset.Pos.y + ang:Up() * offset.Pos.z
+                            ang:RotateAroundAxis(ang:Up(), offset.Ang.y)
+                            ang:RotateAroundAxis(ang:Right(), offset.Ang.p)
+                            ang:RotateAroundAxis(ang:Forward(), offset.Ang.r)
+                        end
                     end
                 end
             end

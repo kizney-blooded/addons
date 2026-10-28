@@ -229,6 +229,14 @@ function SWEP:DoTPIK(isdepth, target_ent)
     local wm = self:GetWM()
     if not IsValid(wm) then return end
 
+    local ply = self:GetOwner()
+    if not IsValid(ply) then return end
+    
+    local target = IsValid(target_ent) and target_ent or ply
+
+    wm:SetupBones()
+    target:SetupBones()
+
     if self.UpdateWorldModelTransform then
         self:UpdateWorldModelTransform()
     end
@@ -246,11 +254,6 @@ function SWEP:DoTPIK(isdepth, target_ent)
         return
     end
 
-    local ply = self:GetOwner()
-    if not IsValid(ply) then return end
-    
-    local target = IsValid(target_ent) and target_ent or ply
-
     local isLocal = (ply == LocalPlayer())
     local tpikdelay = isLocal and 0 or (1 / math.Clamp(tpik_framerate_notyou, 5, 150))
     local shouldfulltpik = isLocal or (self.LastTPIKTime + tpikdelay <= CurTime())
@@ -266,7 +269,6 @@ function SWEP:DoTPIK(isdepth, target_ent)
     target:SetRenderMode(RENDERMODE_TRANSALPHA)
 
     if shouldfulltpik or (self.StillWaiting and self:StillWaiting()) then
-        wm:SetupBones()
 
         local time = self.GetSequenceCycle and self:GetSequenceCycle() or 0
         local seqCache = self.TPIKSequenceCache
@@ -281,8 +283,6 @@ function SWEP:DoTPIK(isdepth, target_ent)
         wm:SetCycle(time)
         cachelastcycle = time
         wm:InvalidateBoneCache()
-        
-        target:SetupBones()
     end
 
     local bones = nolefthand and kb.RHIKHandBones or kb.TPIKBones

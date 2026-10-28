@@ -36,6 +36,17 @@ kb.TPIKBones = {
 local SWEP = FindMetaTable("Weapon")
 
 function SWEP:GetWM()
+    if CLIENT then
+        if not self.WModel or not IsValid(self.WModel[1]) then
+            local wm = ClientsideModel(self.WorldModel or "")
+            if IsValid(wm) then
+                wm:SetNoDraw(true)
+                wm.slottbl = {}
+                self.WModel = { wm }
+            end
+        end
+    end
+    
     return self.WModel and self.WModel[1] or NULL
 end
 
