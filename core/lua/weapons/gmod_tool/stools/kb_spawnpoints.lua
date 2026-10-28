@@ -10,7 +10,8 @@ if CLIENT then
     language.Add("tool.kb_spawnpoints.desc", "Создает точки спавна для Kizney Box")
     language.Add("tool.kb_spawnpoints.left", "ЛКМ: Установить точку")
     language.Add("tool.kb_spawnpoints.right", "ПКМ: Удалить ближайшую точку")
-    -- по остальному принципу буду делать остлаьное:)
+
+    
     KB_SPAWNPOINTS_CLIENT = KB_SPAWNPOINTS_CLIENT or { 
         random = {}, 
         blue = {}, 
@@ -20,6 +21,7 @@ if CLIENT then
         food_lootboxes = {},
         melee_lootboxes = {},
         weapon_lootboxes = {},
+        armor_lootboxes = {},
     }
 end
 
@@ -36,6 +38,7 @@ if SERVER then
         food_lootboxes = {},
         melee_lootboxes = {},
         weapon_lootboxes = {},
+        armor_lootboxes = {},
     }
 
     KB_SPAWN_ENTITIES = KB_SPAWN_ENTITIES or { 
@@ -47,6 +50,7 @@ if SERVER then
         food_lootboxes = {},
         melee_lootboxes = {}, 
         weapon_lootboxes = {},
+        armor_lootboxes = {},
     }
 
     local function GetDirPath()
@@ -73,10 +77,11 @@ if SERVER then
             food_lootboxes = {},
             melee_lootboxes = {},
             weapon_lootboxes = {},
+            armor_lootboxes = {},
         }
 
         for sType, points in pairs(KB_SPAWNPOINTS) do
-            if sType == "redzona" or sType == "lootboxes" or sType == "food_lootboxes" or sType == "melee_lootboxes" or sType == "weapon_lootboxes" then continue end
+            if sType == "redzona" or sType == "lootboxes" or sType == "food_lootboxes" or sType == "melee_lootboxes" or sType == "weapon_lootboxes" or sType == "armor_lootboxes" then continue end
             for _, pos in ipairs(points) do
                 local ent = ents.Create("info_target")
                 ent:SetPos(pos)
@@ -93,6 +98,7 @@ if SERVER then
         KB_SPAWNPOINTS.food_lootboxes = KB_SPAWNPOINTS.food_lootboxes or {}
         KB_SPAWNPOINTS.melee_lootboxes = KB_SPAWNPOINTS.melee_lootboxes or {}
         KB_SPAWNPOINTS.weapon_lootboxes = KB_SPAWNPOINTS.weapon_lootboxes or {}
+        KB_SPAWNPOINTS.armor_lootboxes = KB_SPAWNPOINTS.armor_lootboxes or {}
         
         net.Start("kb_spawnpoints_update")
         net.WriteTable(KB_SPAWNPOINTS)
@@ -118,6 +124,7 @@ if SERVER then
                     food_lootboxes = {},
                     melee_lootboxes = {},
                     weapon_lootboxes = {},
+                    armor_lootboxes = {},
                 }
             end
         end
@@ -161,7 +168,8 @@ if SERVER then
             ["lootboxes"] = "ent_lootboxes",
             ["food_lootboxes"] = "ent_lootbox_food",
             ["melee_lootboxes"] = "ent_lootbox_melee",
-            ["weapon_lootboxes"] = "ent_lootbox_weapon"
+            ["weapon_lootboxes"] = "ent_lootbox_weapon",
+            ["armor_lootboxes"] = "ent_lootbox_armor"
         }
 
         for sType, entClass in pairs(classes) do
@@ -202,6 +210,7 @@ if CLIENT then
             food_lootboxes = Color(255, 224, 157),
             melee_lootboxes = Color(255, 157, 157),
             weapon_lootboxes = Color(82, 82, 128),
+            armor_lootboxes = Color(100, 100, 100, 150),
         }
 
         render.SetColorMaterial()
@@ -214,7 +223,7 @@ if CLIENT then
                     render.DrawSphere( data.pos, data.radius, 30, 30, fillCol )
                     render.CullMode( MATERIAL_CULLMODE_CCW )
                     render.DrawSphere( data.pos, data.radius, 30, 30, fillCol )
-                elseif sType == "lootboxes" or sType == "food_lootboxes" or sType == "melee_lootboxes" then
+                elseif sType == "lootboxes" or sType == "food_lootboxes" or sType == "melee_lootboxes" or sType == "armor_lootboxes" then
                     local boxMins = Vector(-20, -20, 0) 
                     local boxMaxs = Vector(20, 20, 40) 
                     
@@ -262,7 +271,7 @@ end
 
 function TOOL:LeftClick(trace)
     local spawnType = self:GetClientInfo("type")
-    if spawnType != "random" and spawnType != "blue" and spawnType != "red" and spawnType != "redzona" and spawnType != "lootboxes" and spawnType != "food_lootboxes" and spawnType != "melee_lootboxes" and spawnType != "weapon_lootboxes" then
+    if spawnType != "random" and spawnType != "blue" and spawnType != "red" and spawnType != "redzona" and spawnType != "lootboxes" and spawnType != "food_lootboxes" and spawnType != "melee_lootboxes" and spawnType != "weapon_lootboxes" and spawnType != "armor_lootboxes" then
         spawnType = "random"
     end
 
@@ -316,7 +325,8 @@ function TOOL:LeftClick(trace)
         ["lootboxes"] = "ent_lootboxes",
         ["food_lootboxes"] = "ent_lootbox_food",
         ["melee_lootboxes"] = "ent_lootbox_melee",
-        ["weapon_lootboxes"] = "ent_lootbox_weapon"
+        ["weapon_lootboxes"] = "ent_lootbox_weapon",
+        ["armor_lootboxes"] = "ent_lootbox_armor"
     }
 
     if classes[spawnType] then
@@ -407,6 +417,7 @@ function TOOL.BuildCPanel(CPanel)
     comboEnts:AddChoice("Еда (ent_lootbox_food)", "food_lootboxes")
     comboEnts:AddChoice("Ближний бой (ent_lootbox_melee)", "melee_lootboxes")
     comboEnts:AddChoice("Оружие (weapon_lootboxes)", "weapon_lootboxes")
+    comboEnts:AddChoice("Броня (ent_lootbox_armor)", "armor_lootboxes")
 
     comboEnts.OnSelect = function(self, index, value, data)
         RunConsoleCommand("kb_spawnpoints_type", data)
@@ -419,8 +430,6 @@ if SERVER then
     hook.Add("PlayerSelectSpawn", "KB_PlayerSelectSpawn", function(ply, transition)
         if transition then return end
 
-
-        -- проверка на спальник
         if IsValid(ply.JModSpawnPointEntity) and ply.JModSpawnPointEntity:GetClass() == "ent_jack_sleepingbag" then
             if ply.JModSpawnPointEntity.State == 1 and ply.JModSpawnPointEntity.EZowner == ply then
                 return ply.JModSpawnPointEntity
