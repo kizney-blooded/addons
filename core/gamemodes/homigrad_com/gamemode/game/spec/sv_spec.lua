@@ -8,6 +8,12 @@ hook.Add("PlayerInitialSpawn","GoToSpectate",function(ply,bool)
                 ply:Spectate(ply.PreferredSpecMode)
             end)
         end
+
+        if kb.RD.current_round == "constract" and kb.RD.disable_respawn_time and CurTime() >= kb.RD.disable_respawn_time then
+            timer.Simple(0.1,function()
+                ply:KillSilent()
+            end)
+        end
     end
 end)
 

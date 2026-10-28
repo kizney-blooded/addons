@@ -53,19 +53,34 @@ function constract.LogicRound()
 end
 
 
-timer.Create("AutoClearRagdollsAndDecals", 120, 0, function()
+timer.Create("AutoClearRagdollsAndDecals", 200, 0, function()
     if kb.RD.current_round == "constract" then
+        
+        PrintMessage(3, "Консоль: Через 60 секунд будут очищены все трупы, броня и остальные предметы!")
 
-        local ragdolls = ents.FindByClass("prop_ragdoll")
-        for _, ragdoll in ipairs(ragdolls) do
-            if IsValid(ragdoll) and not IsValid(ragdoll.FakePlayer) then
-                ragdoll:Remove()
+        timer.Simple(60, function()
+            if kb.RD.current_round == "constract" then
+
+                local ragdolls = ents.FindByClass("prop_ragdoll")
+                for _, ragdoll in ipairs(ragdolls) do
+                    if IsValid(ragdoll) and not IsValid(ragdoll.FakePlayer) then
+                        ragdoll:Remove()
+                    end
+                end
+
+                for _, ent in ipairs(ents.GetAll()) do
+                    if IsValid(ent) and string.StartWith(ent:GetClass(), "ent_jack_gmod_ezarmor") then
+                        ent:Remove()
+                    end
+                end
+
+                for _, ply in player.Iterator() do
+                    ply:ConCommand("r_cleardecals")
+                end
+                
+                PrintMessage(3, "Консоль: Очистка завершена!")
             end
-        end
-
-        for _, ply in player.Iterator() do
-            ply:ConCommand("r_cleardecals")
-        end
+        end)
         
     end 
 end)
