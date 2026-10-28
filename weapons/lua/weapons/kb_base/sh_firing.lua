@@ -58,7 +58,7 @@ function SWEP:ShootBullets( damage, num_bullets, aimcone )
     bullet.TracerName = "Tracer"
     bullet.Force	= 0
     bullet.Damage	= damage
-    bullet.AmmoType = "Pistol"
+    bullet.AmmoType = self.Primary.Ammo or "pistol"
     
     if IsValid(rag) then
         bullet.IgnoreEntity = rag
