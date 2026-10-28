@@ -72,18 +72,49 @@ function SWEP:ShootBullets( damage, num_bullets, aimcone )
 
     if IsFirstTimePredicted() then
         local recoil = self.RecoilCamShot or 1.5
-        local eyeang = owner:EyeAngles()
         
         local pitch_recoil = math.Rand(0.8, 1.2) * recoil
         local yaw_recoil = math.Rand(-0.8, 0.8) * recoil
         
-        eyeang.p = math.Clamp(eyeang.p - pitch_recoil, -89, 89)
-        eyeang.y = math.NormalizeAngle(eyeang.y + yaw_recoil)
-        
-        owner:SetEyeAngles(eyeang)
+        if CLIENT and owner == LocalPlayer() then
+            self.TargetRecoilPitch = (self.TargetRecoilPitch or 0) - pitch_recoil
+            self.TargetRecoilYaw = (self.TargetRecoilYaw or 0) + yaw_recoil
+        end
 
         if CLIENT then
             self:DoCameraShake()
         end
     end
+end
+
+if CLIENT then
+    hook.Add("CreateMove", "KB_HardRecoil_System", function(cmd)
+        local ply = LocalPlayer()
+        if not IsValid(ply) then return end
+        
+        local wep = ply:GetActiveWeapon()
+        
+        if IsValid(wep) and wep.TargetRecoilPitch and wep.TargetRecoilYaw then
+            
+            local apply_speed = 0.3 
+            
+            local pitch_step = wep.TargetRecoilPitch * apply_speed
+            local yaw_step = wep.TargetRecoilYaw * apply_speed
+            
+            if math.abs(wep.TargetRecoilPitch) > 0.05 or math.abs(wep.TargetRecoilYaw) > 0.05 then
+                local ang = cmd:GetViewAngles()
+                
+                ang.p = math.Clamp(ang.p + pitch_step, -89, 89)
+                ang.y = math.NormalizeAngle(ang.y + yaw_step)
+                
+                cmd:SetViewAngles(ang)
+                
+                wep.TargetRecoilPitch = wep.TargetRecoilPitch - pitch_step
+                wep.TargetRecoilYaw = wep.TargetRecoilYaw - yaw_step
+            else
+                wep.TargetRecoilPitch = 0
+                wep.TargetRecoilYaw = 0
+            end
+        end
+    end)
 end

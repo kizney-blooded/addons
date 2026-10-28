@@ -78,6 +78,9 @@ function SWEP:PlayAnimation(animName)
         return
     end
 
+    local isOwner = (IsValid(self:GetOwner()) and self:GetOwner() == LocalPlayer())
+    if CLIENT and isOwner and not IsFirstTimePredicted() then return end
+
     local animData = self.Animations[animName]
     local mult = animData.mult or 1
     local wm = self:GetWM()
@@ -97,8 +100,7 @@ function SWEP:PlayAnimation(animName)
         end
     end
 
-    if CLIENT and IsFirstTimePredicted() then
-
+    if CLIENT and (not isOwner or IsFirstTimePredicted()) then
         if animData.sounds then
             for _, sndData in ipairs(animData.sounds) do
                 local delay = sndData.time / mult
@@ -109,7 +111,6 @@ function SWEP:PlayAnimation(animName)
                 end)
             end
         end
-        
     end
 end
 
