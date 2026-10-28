@@ -16,7 +16,7 @@ SWEP.PrimaryDelay = 0.09
 
 SWEP.Primary.ClipSize = 30
 SWEP.Primary.DefaultClip = 30
-SWEP.Primary.Ammo = "pistol"
+SWEP.Primary.Ammo = "Pistol"
 
 SWEP.RecoilCamShot = 1.5
 
