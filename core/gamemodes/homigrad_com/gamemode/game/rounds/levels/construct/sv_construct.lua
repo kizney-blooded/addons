@@ -53,12 +53,12 @@ function constract.LogicRound()
 end
 
 
-timer.Create("AutoClearRagdollsAndDecals", 150, 0, function()
+timer.Create("AutoClearRagdollsAndDecals", 120, 0, function()
     if kb.RD.current_round == "constract" then
 
         local ragdolls = ents.FindByClass("prop_ragdoll")
         for _, ragdoll in ipairs(ragdolls) do
-            if IsValid(ragdoll) then
+            if IsValid(ragdoll) and not IsValid(ragdoll.FakePlayer) then
                 ragdoll:Remove()
             end
         end
