@@ -32,6 +32,20 @@ function playermeta:create_fake(vel)
     rag:SetAngles(self:GetAngles())
     rag:SetModel(self:GetModel())
 
+    rag:SetSkin(self:GetSkin())
+
+    for _, bg in pairs(self:GetBodyGroups()) do
+        rag:SetBodygroup(bg.id, self:GetBodygroup(bg.id))
+    end
+
+    for k, v in pairs(self:GetMaterials()) do
+        if self:GetSubMaterial(k - 1) ~= "" then
+            rag:SetSubMaterial(k - 1, self:GetSubMaterial(k - 1))
+        end
+    end
+    
+    rag:SetMaterial(self:GetMaterial())
+
     rag:SetNWVector("PlayerColor", self:GetPlayerColor())
 
     rag:SetCollisionGroup(COLLISION_GROUP_WEAPON)
