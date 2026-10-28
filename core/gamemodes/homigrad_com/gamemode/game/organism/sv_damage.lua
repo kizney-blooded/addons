@@ -62,6 +62,31 @@ function otrub_system(ply, damage, hitgroup)
     end
 end
 
+function trip_system(ply, damage, hitgroup)
+    if not IsValid(ply) or not ply:Alive() then return end
+    
+    ply.NextFallTime = ply.NextFallTime or 0
+    if CurTime() < ply.NextFallTime then return end
+    
+    if IsValid(ply.FakeRagdoll) then return end
+    
+    local should_fall = false
+    
+    if damage > 40 then
+        should_fall = true
+    end
+    
+    if (hitgroup == HITGROUP_LEFTLEG or hitgroup == HITGROUP_RIGHTLEG) and damage >= 15 then
+        should_fall = true
+    end
+    
+    if should_fall then
+        ply:create_fake()
+        
+        ply.NextFallTime = CurTime() + 3
+    end
+end
+
 local function process_hitgroup_damage(ent, hitgroup, damage, pos)
     if not ent.HitGroupHP or not ent.HitGroupHP[hitgroup] then return end
     
@@ -87,6 +112,7 @@ hook.Add("ScalePlayerDamage", "KB_HitGroupScale", function(ply, hitgroup, dmginf
     process_hitgroup_damage(ply, hitgroup, final_damage, dmginfo:GetDamagePosition())
     
     otrub_system(ply, final_damage, hitgroup)
+    trip_system(ply, final_damage, hitgroup)
     
     return false
 end)

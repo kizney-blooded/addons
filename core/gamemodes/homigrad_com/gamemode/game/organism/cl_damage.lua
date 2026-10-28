@@ -58,6 +58,50 @@ hook.Add("HUDPaint", "Otrub_ScreenDarken", function()
     end
 end)
 
+
+local color_mod = {
+    ["$pp_colour_addr"] = 0,
+    ["$pp_colour_addg"] = 0,
+    ["$pp_colour_addb"] = 0,
+    ["$pp_colour_brightness"] = 0,
+    ["$pp_colour_contrast"] = 1,
+    ["$pp_colour_colour"] = 1,
+    ["$pp_colour_mulr"] = 0,
+    ["$pp_colour_mulg"] = 0,
+    ["$pp_colour_mulb"] = 0
+}
+
+local blurMat = Material("pp/blurscreen")
+
+hook.Add("RenderScreenspaceEffects", "LowHealthVisualEffects", function()
+    local ply = LocalPlayer()
+    
+    if not IsValid(ply) or not ply:Alive() then return end
+
+    local hp = ply:Health()
+    local maxHp = ply:GetMaxHealth()
+
+    local saturation = math.Clamp(hp / maxHp, 0, 1)
+    color_mod["$pp_colour_colour"] = saturation
+    DrawColorModify(color_mod)
+
+    if hp <= 40 then
+        local blurAmount = math.Clamp((40 - hp) / 40 * 6, 0, 6)
+        
+        surface.SetMaterial(blurMat)
+        surface.SetDrawColor(255, 255, 255, 255)
+        
+        for i = 1, 3 do
+            blurMat:SetFloat("$blur", (blurAmount / 3) * i)
+            blurMat:Recompute()
+            
+            render.UpdateScreenEffectTexture()
+            surface.DrawTexturedRect(0, 0, ScrW(), ScrH())
+        end
+    end
+end)
+
+
 net.Receive("headshot_effect", function()
     local pos = net.ReadVector()
     
@@ -102,47 +146,27 @@ net.Receive("headshot_effect", function()
         end
     end
 
-    emitter:Finish()
-end)
-
-local color_mod = {
-    ["$pp_colour_addr"] = 0,
-    ["$pp_colour_addg"] = 0,
-    ["$pp_colour_addb"] = 0,
-    ["$pp_colour_brightness"] = 0,
-    ["$pp_colour_contrast"] = 1,
-    ["$pp_colour_colour"] = 1,
-    ["$pp_colour_mulr"] = 0,
-    ["$pp_colour_mulg"] = 0,
-    ["$pp_colour_mulb"] = 0
-}
-
-local blurMat = Material("pp/blurscreen")
-
-hook.Add("RenderScreenspaceEffects", "LowHealthVisualEffects", function()
-    local ply = LocalPlayer()
-    
-    if not IsValid(ply) or not ply:Alive() then return end
-
-    local hp = ply:Health()
-    local maxHp = ply:GetMaxHealth()
-
-    local saturation = math.Clamp(hp / maxHp, 0, 1)
-    color_mod["$pp_colour_colour"] = saturation
-    DrawColorModify(color_mod)
-
-    if hp <= 40 then
-        local blurAmount = math.Clamp((40 - hp) / 40 * 6, 0, 6)
+    for i = 1, 8 do
+        local smoke = emitter:Add("particle/particle_smokegrenade", pos)
         
-        surface.SetMaterial(blurMat)
-        surface.SetDrawColor(255, 255, 255, 255)
-        
-        for i = 1, 3 do
-            blurMat:SetFloat("$blur", (blurAmount / 3) * i)
-            blurMat:Recompute()
+        if smoke then
+            local velocity = VectorRand() * math.random(30, 80)
+            velocity.z = math.Rand(20, 60)
             
-            render.UpdateScreenEffectTexture()
-            surface.DrawTexturedRect(0, 0, ScrW(), ScrH())
+            smoke:SetVelocity(velocity)
+            smoke:SetDieTime(math.Rand(5, 10))
+            smoke:SetStartAlpha(math.random(100, 150))
+            smoke:SetEndAlpha(0)
+            smoke:SetStartSize(math.Rand(30, 60))
+            smoke:SetEndSize(math.Rand(20, 30))
+            smoke:SetRoll(math.Rand(0, 360))
+            smoke:SetRollDelta(math.Rand(-1, 1))
+            smoke:SetColor(130, 10, 10)
+            
+            smoke:SetGravity(Vector(0, 0, 20))
+            smoke:SetAirResistance(50)
         end
     end
+
+    emitter:Finish()
 end)
