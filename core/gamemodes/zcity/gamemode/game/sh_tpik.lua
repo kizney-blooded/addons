@@ -97,15 +97,19 @@ function SWEP:PlayAnimation(animName)
         end
     end
 
-    if animData.sounds then
-        for _, sndData in ipairs(animData.sounds) do
-            local delay = sndData.time / mult
-            timer.Simple(delay, function()
-                if IsValid(self) then
-                    self:EmitSound(sndData.sound)
-                end
-            end)
+    if CLIENT and IsFirstTimePredicted() then
+
+        if animData.sounds then
+            for _, sndData in ipairs(animData.sounds) do
+                local delay = sndData.time / mult
+                timer.Simple(delay, function()
+                    if IsValid(self) then
+                        self:EmitSound(sndData.sound)
+                    end
+                end)
+            end
         end
+        
     end
 end
 
