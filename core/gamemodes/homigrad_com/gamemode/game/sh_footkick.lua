@@ -274,7 +274,7 @@ if CLIENT then
 
 	-- Clientside: minimal interface
 	if CLIENT then
-		concommand.Add("mightyfootengaged", function()
+		concommand.Add("kb_kick", function()
 		-- Simple client command to trigger a kick: it notifies the server to perform the kick
 			net.Start("EngageMF")
 			net.SendToServer()
