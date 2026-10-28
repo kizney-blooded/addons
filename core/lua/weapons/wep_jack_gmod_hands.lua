@@ -15,6 +15,7 @@ else
 	local HandTex, ClosedTex = surface.GetTextureID("vgui/hud/gmod_hand"), surface.GetTextureID("vgui/hud/gmod_closedhand")
 
 	function SWEP:DrawHUD()
+		if IsValid(LocalPlayer():GetNWEntity("FakeRagdoll")) then return end
 		if GetConVar("cl_drawhud"):GetBool() == false then return end
 		if not (GetViewEntity() == LocalPlayer()) then return end
 		if LocalPlayer():InVehicle() then return end
@@ -139,6 +140,7 @@ function SWEP:CanPickup(ent)
 end
 
 function SWEP:SecondaryAttack()
+	if IsValid(self.Owner:GetNWEntity("FakeRagdoll")) then return end
 	if not IsFirstTimePredicted() then return end
 	if self:GetFists() then return end
 
@@ -314,6 +316,7 @@ function SWEP:Think()
 end
 
 function SWEP:PrimaryAttack()
+	if IsValid(self.Owner:GetNWEntity("FakeRagdoll")) then return end
 	if SERVER then
 		local Alt = self.Owner:KeyDown(JMod.Config.General.AltFunctionKey)
 
