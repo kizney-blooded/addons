@@ -51,3 +51,21 @@ function constract.LogicRound()
         end
     end
 end
+
+
+timer.Create("AutoClearRagdollsAndDecals", 150, 0, function()
+    if kb.RD.current_round == "constract" then
+
+        local ragdolls = ents.FindByClass("prop_ragdoll")
+        for _, ragdoll in ipairs(ragdolls) do
+            if IsValid(ragdoll) then
+                ragdoll:Remove()
+            end
+        end
+
+        for _, ply in player.Iterator() do
+            ply:ConCommand("r_cleardecals")
+        end
+        
+    end 
+end)
