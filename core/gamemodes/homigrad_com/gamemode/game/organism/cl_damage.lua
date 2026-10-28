@@ -104,3 +104,45 @@ net.Receive("headshot_effect", function()
 
     emitter:Finish()
 end)
+
+local color_mod = {
+    ["$pp_colour_addr"] = 0,
+    ["$pp_colour_addg"] = 0,
+    ["$pp_colour_addb"] = 0,
+    ["$pp_colour_brightness"] = 0,
+    ["$pp_colour_contrast"] = 1,
+    ["$pp_colour_colour"] = 1,
+    ["$pp_colour_mulr"] = 0,
+    ["$pp_colour_mulg"] = 0,
+    ["$pp_colour_mulb"] = 0
+}
+
+local blurMat = Material("pp/blurscreen")
+
+hook.Add("RenderScreenspaceEffects", "LowHealthVisualEffects", function()
+    local ply = LocalPlayer()
+    
+    if not IsValid(ply) or not ply:Alive() then return end
+
+    local hp = ply:Health()
+    local maxHp = ply:GetMaxHealth()
+
+    local saturation = math.Clamp(hp / maxHp, 0, 1)
+    color_mod["$pp_colour_colour"] = saturation
+    DrawColorModify(color_mod)
+
+    if hp <= 40 then
+        local blurAmount = math.Clamp((40 - hp) / 40 * 6, 0, 6)
+        
+        surface.SetMaterial(blurMat)
+        surface.SetDrawColor(255, 255, 255, 255)
+        
+        for i = 1, 3 do
+            blurMat:SetFloat("$blur", (blurAmount / 3) * i)
+            blurMat:Recompute()
+            
+            render.UpdateScreenEffectTexture()
+            surface.DrawTexturedRect(0, 0, ScrW(), ScrH())
+        end
+    end
+end)
