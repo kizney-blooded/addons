@@ -11,3 +11,9 @@ surface.CreateFont("KB.2",{
     size = 22,
     weight = 1000,
 })
+
+surface.CreateFont("KB.3",{
+    "Arial",
+    size = 15,
+    weight = 1000,
+})
