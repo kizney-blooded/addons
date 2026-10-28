@@ -438,8 +438,12 @@ if SERVER then
 
         local pool = {}
 
-        if kb and kb.RD and kb.RD.current_round == "hmcd" then
-            pool = KB_SPAWN_ENTITIES["random"]
+        if kb and kb.RD then
+            if kb.RD.current_round == "hmcd" then
+                pool = KB_SPAWN_ENTITIES["random"]
+            elseif kb.RD.current_round == "constract" then
+                pool = KB_SPAWN_ENTITIES["random"]
+            end
         else
             local teamID = ply:Team()
             if teamID == 1 then
