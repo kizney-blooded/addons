@@ -431,7 +431,11 @@ if SERVER then
             end
 
             local kickinfo = DamageInfo()
-            kickinfo:SetDamage(damage)
+            if ent:IsPlayer() then
+                kickinfo:SetDamage(5)
+            else
+                kickinfo:SetDamage(damage)
+            end
             kickinfo:SetDamageForce((ent:IsRagdoll() or isliving) and ragf or force)
             kickinfo:SetAttacker(ply)
             kickinfo:SetInflictor(ply)
@@ -495,6 +499,20 @@ if SERVER then
 
             if not ent:IsWorld() then
                 ent:TakeDamageInfo(kickinfo)
+                
+                if ent:IsPlayer() and not IsValid(ent.FakeRagdoll) then
+                    ent:create_fake()
+                    
+                    local rag = ent.FakeRagdoll
+                    if IsValid(rag) then
+                        for i = 0, rag:GetPhysicsObjectCount() - 1 do
+                            local phys = rag:GetPhysicsObjectNum(i)
+                            if IsValid(phys) then
+                                phys:ApplyForceCenter(ragf / 4)
+                            end
+                        end
+                    end
+                end
             end
 
             ply:SetVelocity(pushbackamt)
