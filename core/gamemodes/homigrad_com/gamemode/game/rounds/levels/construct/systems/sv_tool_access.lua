@@ -123,10 +123,14 @@ hook.Add("PlayerSpawnVehicle", "Shkaf_PreventVehicle", PreventSpawning)
 hook.Add("PlayerSpawnNPC", "Shkaf_PreventNPC", PreventSpawning)
 hook.Add("PlayerSpawnSWEP", "Shkaf_PreventSWEP", PreventSpawning)
 hook.Add("PlayerSpawnSENT", "Shkaf_PreventSENT", function(ply, class)
-
     if ply:IsSuperAdmin() then return end
 
     if class == "con_shkaf" then
+        if IsValid(ply.MyShkaf) then
+            ply:ChatPrint("Вы можете поставить только один шкаф!")
+            return false
+        end
+
         local tr = ply:GetEyeTrace()
         local spawnPos = tr.HitPos
         local entTable = scripted_ents.Get("con_shkaf")
@@ -142,8 +146,23 @@ hook.Add("PlayerSpawnSENT", "Shkaf_PreventSENT", function(ply, class)
             end
         end
         return
-    else
-        return PreventSpawning(ply) 
+    end
+    
+    local prevent = PreventSpawning(ply)
+    if prevent == false then return false end
+
+    if class == "con_lootbox" then
+        local count = 0
+        for _, ent in ipairs(ents.FindByClass("con_lootbox")) do
+            if ent.ShkafOwner == ply then
+                count = count + 1
+            end
+        end
+        
+        if count >= 6 then
+            ply:ChatPrint("Вы достигли лимита: максимум 6 хранилищ!")
+            return false
+        end
     end
 end)
 
@@ -154,6 +173,18 @@ hook.Add("PlayerSpawnedSENT", "Shkaf_RegisterOwner", function(ply, ent)
         end
         ply.MyShkaf = ent
         ent.ShkafOwner = ply
+        ent.ShkafOwnerID = ply:SteamID()
+        
+    end
+end)
+
+hook.Add("PlayerInitialSpawn", "Shkaf_RestoreOwner", function(ply)
+    for _, ent in ipairs(ents.FindByClass("con_shkaf")) do
+        if ent.ShkafOwnerID == ply:SteamID() then
+            ply.MyShkaf = ent
+            ent.ShkafOwner = ply
+            break
+        end
     end
 end)
 
