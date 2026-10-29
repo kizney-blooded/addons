@@ -22,6 +22,8 @@ SWEP.RecoilCamShot = 1.5
 
 SWEP.ReloadTime = 2.3
 
+SWEP.IsRifle = true
+
 
 SWEP.WorldPos = { Pos = Vector(0.00, 0.00, 0.00), Ang = Angle(30.00, 50.00, 90.00) }
 SWEP.LWorldPos = { Pos = Vector(-1.14, -8.71, 0.00), Ang = Angle(0.00, 0.00, 0.00) }
