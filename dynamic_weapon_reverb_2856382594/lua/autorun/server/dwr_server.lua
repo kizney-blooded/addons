@@ -4,8 +4,10 @@ util.AddNetworkString("dwr_EntityFireBullets_networked")
 util.AddNetworkString("dwr_EntityEmitSound_networked")
 util.AddNetworkString("dwr_sync_blacklist")
 
-local networkSoundsConvar = CreateConVar("sv_dwr_network_sounds", "0", {FCVAR_ARCHIVE, FCVAR_REPLICATED}, "Network server-only gunshots to clients in order for them to get processed as well. Introduces delay to weapon firing.")
-local networkGunshotsConvar = CreateConVar("sv_dwr_network_reverb_pas", "0", {FCVAR_ARCHIVE, FCVAR_REPLICATED}, "Network gunshot events only to people that are considered in range by the game.")
+-- Настройки сервера
+local sv_dwr_network_sounds = false
+local sv_dwr_network_reverb_pas = false
+
 local blacklist = {}
 
 if not file.Read("dwr_sv_weapon_blacklist.json") or #file.Read("dwr_sv_weapon_blacklist.json") == 0 then
@@ -106,7 +108,7 @@ local function networkGunshotEvent(data)
         net.WriteBool(data.isSuppressed)
         net.WriteEntity(data.Entity) -- to exclude them in MP. they're going to get hook data anyway
         net.WriteBool(data.Explosion)
-    if networkGunshotsConvar:GetBool() then net.SendPAS(data.Src) else net.Broadcast() end
+    if sv_dwr_network_reverb_pas then net.SendPAS(data.Src) else net.Broadcast() end
 end
 
 function tacrp_dwr_detour(args)
@@ -478,7 +480,7 @@ end)
 
 -- Can't get it working reliably for all scenarios. I know for a fact it works well for stock weapons so I'll leave it at that.
 hook.Add("EntityEmitSound", "dwr_EntityEmitSound", function(data)
-    if not networkSoundsConvar:GetBool() then return end
+    if not sv_dwr_network_sounds then return end
     if not string.StartsWith(data.OriginalSoundName, "Weapon") then return end
     if string.find(data.SoundName, "rpg") then return end
 

@@ -1,5 +1,17 @@
 print("[DWRV3] Client loaded.")
 
+local cl_dwr_volume = 100
+local cl_dwr_disable_soundspeed = true
+local cl_dwr_disable_indoors_reverb = false
+local cl_dwr_disable_outdoors_reverb = false
+local cl_dwr_disable_reverb = false
+local cl_dwr_soundspeed = 343
+local cl_dwr_occlusion_rays = 32
+local cl_dwr_occlusion_rays_reflections = 0
+local cl_dwr_occlusion_rays_max_distance = 100000
+local cl_dwr_process_everything = false
+local cl_dwr_disable_bulletcracks = false
+
 local UNITS_TO_METERS = 0.01905 -- multiply by this value and voila
 
 local MASK_GLOBAL = CONTENTS_WINDOW + CONTENTS_SOLID + CONTENTS_AREAPORTAL + CONTENTS_MONSTERCLIP + CONTENTS_CURRENT_0
@@ -191,13 +203,10 @@ local function reflectVector(pVector, normal)
 	return pVector - normal * dn
 end
 
-local cl_dwr_occlusion_rays_reflections = GetConVar("cl_dwr_occlusion_rays_reflections")
-local cl_dwr_occlusion_rays_max_distance = GetConVar("cl_dwr_occlusion_rays_max_distance")
-
 local function traceableToPos(earpos, pos, offset)
-	local bounceLimit = cl_dwr_occlusion_rays_reflections:GetInt()
+	local bounceLimit = cl_dwr_occlusion_rays_reflections
 	local lastTrace = {}
-	local maxdistance = cl_dwr_occlusion_rays_max_distance:GetInt()
+	local maxdistance = cl_dwr_occlusion_rays_max_distance
 	local totalDistance = 0
 
 	earpos = earpos + vector_up * 10 -- just in case
@@ -253,11 +262,10 @@ local function inverted_boolToInt(value)
   	return value and 0 or 1
 end
 
-local cl_dwr_occlusion_rays = GetConVar("cl_dwr_occlusion_rays")
 local x_vector_offset = Vector(56754,0,0)
 
 local function getOcclusionPercent(earpos, pos)
-	local traceAmount = math.floor(cl_dwr_occlusion_rays:GetInt()/4)
+	local traceAmount = math.floor(cl_dwr_occlusion_rays/4)
 	local degrees = 360/traceAmount
 	local successfulTraces = 0
 	local failedTraces = 0
@@ -292,15 +300,8 @@ local function calculateDelay(distance, speed)
 	return distance / speed
 end
 
-local cl_dwr_disable_reverb = GetConVar("cl_dwr_disable_reverb")
-local cl_dwr_disable_indoors_reverb = GetConVar("cl_dwr_disable_indoors_reverb")
-local cl_dwr_disable_outdoors_reverb = GetConVar("cl_dwr_disable_outdoors_reverb")
-local cl_dwr_soundspeed = GetConVar("cl_dwr_soundspeed")
-local cl_dwr_disable_soundspeed = GetConVar("cl_dwr_disable_soundspeed")
-local cl_dwr_volume = GetConVar("cl_dwr_volume")
-
 local function playReverb(src, ammotype, isSuppressed, weapon)
-	if cl_dwr_disable_reverb:GetBool() == true then return end
+	if cl_dwr_disable_reverb == true then return end
 
 	if weapon.dwr_reverbDisable then return end
 
@@ -309,8 +310,8 @@ local function playReverb(src, ammotype, isSuppressed, weapon)
 
 	local positionState = getPositionState(src)
 	local earpos_positionState = getPositionState(earpos)
-	if cl_dwr_disable_indoors_reverb:GetBool() == true && positionState == "indoors" then return end
-	if cl_dwr_disable_outdoors_reverb:GetBool() == true && positionState == "outdoors" then return end
+	if cl_dwr_disable_indoors_reverb == true && positionState == "indoors" then return end
+	if cl_dwr_disable_outdoors_reverb == true && positionState == "outdoors" then return end
 	local distanceState = getDistanceState(src, earpos)
 	ammotype = weapon.dwr_customAmmoType or formatAmmoType(ammotype)
 	if weapon.dwr_customIsSuppressed != nil then isSuppressed = weapon.dwr_customIsSuppressed end
@@ -352,7 +353,7 @@ local function playReverb(src, ammotype, isSuppressed, weapon)
 		end
 	end
 
-	local soundspeed = cl_dwr_soundspeed:GetFloat()
+	local soundspeed = cl_dwr_soundspeed
 
 	// I slept bad
 	local reverbQueue = {}
@@ -366,7 +367,7 @@ local function playReverb(src, ammotype, isSuppressed, weapon)
 		table.insert(reverbQueue, reverbSoundFile)
 	end
 
-	if cl_dwr_disable_soundspeed:GetInt() == 1 then soundspeed = 0 end
+	if cl_dwr_disable_soundspeed then soundspeed = 0 end
 
 	timer.Simple(calculateDelay(distance, soundspeed), function()
 		for _, path in ipairs(reverbQueue) do
@@ -376,7 +377,7 @@ local function playReverb(src, ammotype, isSuppressed, weapon)
 			elseif #reverbQueue > 1 then
 				mult = 1
 			end
-			EmitSound(path, earpos, -2, CHAN_STATIC, volume * (cl_dwr_volume:GetFloat() / 100) / #reverbQueue * mult, soundLevel, soundFlags, pitch, dsp)
+			EmitSound(path, earpos, -2, CHAN_STATIC, volume * (cl_dwr_volume / 100) / #reverbQueue * mult, soundLevel, soundFlags, pitch, dsp)
 		end
 	end)
 end
@@ -393,10 +394,8 @@ function calculateSpread(dir, spread)
     return (dir + right * spread.x * x + up * spread.y * y)
 end
 
-local cl_dwr_disable_bulletcracks = GetConVar("cl_dwr_disable_bulletcracks")
-
 local function playBulletCrack(src, dir, vel, spread, ammotype, weapon)
-	if cl_dwr_disable_bulletcracks:GetInt() == 1 then return end
+	if cl_dwr_disable_bulletcracks then return end
 	if weapon.dwr_cracksDisable then return end
 
 	local earpos = getEarPos()
@@ -432,7 +431,7 @@ local function playBulletCrack(src, dir, vel, spread, ammotype, weapon)
 	local crackhead = crackOptions[math.random(#crackOptions)] // ")" adds spatial support... not like it matters because we dont have an entity at that position so it doesnt fucking work.
 	
 	timer.Simple(calculateDelay(trajectory.StartPos:Distance(trajectory.HitPos), vel:Length()), function()
-		EmitSound(crackhead, point, -1, CHAN_AUTO, volume * (cl_dwr_volume:GetInt() / 100), soundLevel, soundFlags, pitch, dsp)
+		EmitSound(crackhead, point, -1, CHAN_AUTO, volume * (cl_dwr_volume / 100), soundLevel, soundFlags, pitch, dsp)
 	end)
 end
 
@@ -526,7 +525,9 @@ net.Receive("dwr_EntityFireBullets_networked", function(len)
 	if entity.GetActiveWeapon then
 		weapon = entity:GetActiveWeapon()
 		if not IsValid(weapon) then return end
-		if blacklist[weapon:GetClass()] or serverBlacklist[weapon:GetClass()] then return end
+        
+        local wclass = weapon:GetClass()
+		if blacklist[wclass] or serverBlacklist[wclass] or string.StartWith(wclass, "food_") then return end
 	end
 
 	if not game.SinglePlayer() and ignore then return end
@@ -561,7 +562,9 @@ end)
 if not SP then
 	local function onPrimaryAttack(attacker, weapon)
         local weaponClass = weapon:GetClass()
-		if blacklist[weaponClass] or serverBlacklist[weaponClass] then return end
+		
+        -- Blacklist and 'food_' update
+        if blacklist[weaponClass] or serverBlacklist[weaponClass] or string.StartWith(weaponClass, "food_") then return end
         if weaponClass == "mg_arrow" then return end -- mw2019 sweps crossbow
 
 		local earpos = getEarPos()
@@ -597,17 +600,13 @@ if not SP then
 	end)
 end
 
-local cl_dwr_process_everything = GetConVar("cl_dwr_process_everything")
-
 hook.Add("EntityEmitSound", "dwr_EntityEmitSound", function(data)
 	if data.Pos == nil or not data.Pos then return end
 
-	if cl_dwr_process_everything:GetInt() == 1 and not string.StartsWith(data.SoundName, "dwr") then
+	if cl_dwr_process_everything and not string.StartsWith(data.SoundName, "dwr") then
 		local isweapon = false
 		if string.StartsWith(data.OriginalSoundName, "Weapon") then isweapon = true end
 		data = processSound(data, isweapon)
 		return true
 	end
 end)
-
--- end of main
