@@ -111,8 +111,17 @@ hook.Add("ScalePlayerDamage", "KB_HitGroupScale", function(ply, hitgroup, dmginf
     local final_damage = dmginfo:GetDamage()
     process_hitgroup_damage(ply, hitgroup, final_damage, dmginfo:GetDamagePosition())
     
-    otrub_system(ply, final_damage, hitgroup)
-    trip_system(ply, final_damage, hitgroup)
+    return false
+end)
+
+hook.Add( "ScaleNPCDamage", "ScaleNPCDamageExample", function( npc, hitgroup, dmginfo )
+    local scale = kb.HitGroupDamage[hitgroup]
+    if scale then
+        dmginfo:ScaleDamage(scale)
+    end
+    
+    local final_damage = dmginfo:GetDamage()
+    process_hitgroup_damage(npc, hitgroup, final_damage, dmginfo:GetDamagePosition())
     
     return false
 end)
@@ -262,9 +271,9 @@ hook.Add("PlayerSpawn","ResetOrganism",function(ply,bool)
     end
 end)
 
-hook.Add("OnEntityCreated", "KB_InitSpawnedRagdollsHP", function(ent)
+hook.Add("OnEntityCreated", "KB_InitEntitiesHP", function(ent)
     timer.Simple(0, function()
-        if IsValid(ent) and ent:GetClass() == "prop_ragdoll" then
+        if IsValid(ent) and (ent:GetClass() == "prop_ragdoll" or ent:IsNPC()) then
             if not ent.HitGroupHP then
                 ent.HitGroupHP = table.Copy(kb.HitGroupHP)
             end
