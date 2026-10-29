@@ -658,3 +658,69 @@ net.Receive("KB_DropTargetArmor", function(len, ply)
         SyncTargetArmorViewers(target_ent)
     end
 end)
+
+-- utils
+
+hook.Add("PlayerCanPickupWeapon", "LimitInventoryTo8Weapons", function(ply, wep)
+    if ply:HasWeapon(wep:GetClass()) then 
+        return false
+    end
+
+    local weaponCount = #ply:GetWeapons()
+
+    if weaponCount > 8 then
+        return false
+    end
+    
+end)
+
+local plyMeta = FindMetaTable("Player")
+
+if not plyMeta.OriginalGive then
+    plyMeta.OriginalGive = plyMeta.Give
+end
+
+function plyMeta:Give(className, bNoAmmo)
+    self._ForcePickup = true
+    local wep = self:OriginalGive(className, bNoAmmo)
+    self._ForcePickup = false
+    return wep
+end
+
+hook.Add("PlayerCanPickupWeapon", "DisableAutoPickup_Wep", function(ply, wep)
+    if ply._ForcePickup then return true end
+    return false 
+end)
+
+hook.Add("PlayerCanPickupItem", "DisableAutoPickup_Item", function(ply, item)
+    if ply._ForcePickup then return true end
+    return false
+end)
+
+hook.Add("KeyPress", "ManualPickup_Check", function(ply, key)
+    if key == IN_USE then
+        local tr = ply:GetEyeTrace()
+        local ent = tr.Entity
+
+        if IsValid(ent) and (ent:IsWeapon() or ent:GetClass():find("item_")) then
+            
+            if tr.StartPos:DistToSqr(tr.HitPos) <= 6400 then 
+                
+                ply._ForcePickup = true
+                
+                local oldPos = ent:GetPos()
+                ent:SetPos(ply:GetPos())
+                
+                timer.Simple(0, function()
+                    if IsValid(ply) then 
+                        ply._ForcePickup = false 
+                    end
+                    
+                    if IsValid(ent) and ent:GetPos() == ply:GetPos() then
+                        ent:SetPos(oldPos)
+                    end
+                end)
+            end
+        end
+    end
+end)
