@@ -56,7 +56,7 @@ function SWEP:ShootBullets( damage, num_bullets, aimcone )
     bullet.Spread 	= Vector( aimcone, aimcone, 0 )
     bullet.Tracer	= 1
     bullet.TracerName = "Tracer"
-    bullet.Force	= 0
+    bullet.Force	= 2
     bullet.Damage	= damage
     bullet.AmmoType = self.Primary.Ammo or "pistol"
     
