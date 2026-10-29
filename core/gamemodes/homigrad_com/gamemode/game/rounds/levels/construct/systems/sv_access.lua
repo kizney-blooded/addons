@@ -13,7 +13,6 @@ local valid = {
 
 hook.Add('CanTool', 'fghd3281721fh198fu129fh1298f', function(ply, _, tool)
     if not great_tools[tool] and not valid[ply:GetUserGroup()] then
-		print(123)
         return false
     end
 end)
