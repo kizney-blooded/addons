@@ -53,7 +53,7 @@ function constract.LogicRound()
 end
 
 
-timer.Create("AutoClearRagdollsAndDecals", 200, 0, function()
+timer.Create("AutoClearRagdollsAndDecals", 500, 0, function()
     if kb.RD.current_round == "constract" then
         
         PrintMessage(3, "Консоль: Через 60 секунд будут очищены все трупы, броня и остальные предметы!")
