@@ -11,7 +11,7 @@ local function ShowUpdateMenu( forceShow )
     if not forceShow and cookie.GetString(COOKIE_NAME, "0") == "1" then return end
 
     ActiveMenuFrame = vgui.Create("DFrame")
-    ActiveMenuFrame:SetSize(450, 300)
+    ActiveMenuFrame:SetSize(800, 500)
     ActiveMenuFrame:Center()
     ActiveMenuFrame:SetTitle("Обновление | Версия " .. UPDATE_VERSION)
     ActiveMenuFrame:ShowCloseButton(false)
