@@ -222,3 +222,61 @@ function SWEP:RotateAroundPoint2(pos, ang, point, offset, offset_ang)
 
     return mat:GetTranslation(), mat:GetAngles()
 end
+
+if CLIENT then
+    concommand.Add("get_bones", function(ply, cmd, args)
+        local target = IsValid(ply) and ply or LocalPlayer()
+        
+        if not IsValid(target) then return end
+
+        local mdl = target:GetModel()
+        local boneCount = target:GetBoneCount()
+
+        print("Всего костей: " .. tostring(boneCount))
+        print("-----------------------------------------")
+
+        if boneCount and boneCount > 0 then
+            for i = 0, boneCount - 1 do
+                local boneName = target:GetBoneName(i)
+                print(string.format("[%d] %s", i, tostring(boneName)))
+            end
+        else
+            print("Кости не найдены.")
+        end
+        print("=========================================")
+    end)
+
+    local show_my_bones = false
+
+    concommand.Add("toggle_bones", function()
+        show_my_bones = not show_my_bones
+        
+        local state = show_my_bones and "ВКЛЮЧЕНО" or "ВЫКЛЮЧЕНО"
+    end)
+
+    hook.Add("HUDPaint", "DrawMyBones_Debug", function()
+        if not show_my_bones then return end
+
+        local ply = LocalPlayer()
+        if not IsValid(ply) then return end
+
+        local boneCount = ply:GetBoneCount()
+        if not boneCount or boneCount == 0 then return end
+
+        for i = 0, boneCount - 1 do
+            local matrix = ply:GetBoneMatrix(i)
+            if not matrix then continue end
+            
+            local pos = matrix:GetTranslation()
+            local scr = pos:ToScreen()
+
+            if scr.visible then
+                local boneName = ply:GetBoneName(i)
+                local text = string.format("[%d] %s", i, boneName)
+                
+                draw.SimpleText(text, "ChatFont", scr.x + 1, scr.y + 1, Color(0, 0, 0, 200), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+                draw.SimpleText(text, "ChatFont", scr.x, scr.y, Color(0, 255, 255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+            end
+        end
+    end)
+end
