@@ -97,5 +97,7 @@ hook.Add("CreateEntityRagdoll", "HeavyRagdollPhysics", function(entity, ragdoll)
 end)
 
 hook.Add( "OnNPCDropItem", "RemoveNPCDrops", function( npc, item )
-	item:Remove()
+    timer.Simple(0.5,function()
+        item:Remove()
+    end)
 end )
