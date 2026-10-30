@@ -333,6 +333,26 @@ function SWEP:DoTPIK(isdepth, target_ent)
     if nolefthand then return end
 
     ProcessHandIK(self, target, limblength, eyeahg, shouldfulltpik, tpikTweenAlpha, true)
+    -- я гений
+    local l_hand = GetCachedBoneIndex(target, "ValveBiped.Bip01_L_Hand")
+    local l_att = GetCachedBoneIndex(target, "ValveBiped.Anim_Attachment_LH")
+    if l_hand and l_att then
+        local mat = entityGetBoneMatrix(target, l_hand)
+        if mat then
+            entitySetBoneMatrix(target, l_att, mat)
+            target:SetBonePosition(l_att, mat:GetTranslation(), mat:GetAngles())
+        end
+    end
+
+    local r_hand = GetCachedBoneIndex(target, "ValveBiped.Bip01_R_Hand")
+    local r_att = GetCachedBoneIndex(target, "ValveBiped.Anim_Attachment_RH")
+    if r_hand and r_att then
+        local mat = entityGetBoneMatrix(target, r_hand)
+        if mat then
+            entitySetBoneMatrix(target, r_att, mat)
+            target:SetBonePosition(r_att, mat:GetTranslation(), mat:GetAngles())
+        end
+    end
 end
 
 hook.Add("PrePlayerDraw", "kb_TPIK_Draw", function(ply, flags)
