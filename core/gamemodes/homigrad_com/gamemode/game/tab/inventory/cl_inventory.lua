@@ -1,5 +1,43 @@
 -- господи помилуй мой инвентарь, это ужас, я уже запутался в нем сделал и больше не заходить
 
+
+function draw.CircleProcessing(x, y, radius, progress, color)
+    progress = math.Clamp(progress, 0, 1)
+    
+    if progress <= 0 then return end
+    
+    surface.SetDrawColor(color.r, color.g, color.b, color.a or 255)
+    draw.NoTexture()
+    
+    local poly = {}
+    
+    table.insert(poly, { x = x, y = y })
+    
+    local segments = 64
+    local startAngle = -90
+    
+    local currentAngle = startAngle + (360 * (1 - progress))
+    local endAngle = startAngle + 360
+    
+    local step = 360 / segments
+    
+    for i = currentAngle, endAngle, step do
+        local rad = math.rad(i)
+        table.insert(poly, {
+            x = x + math.cos(rad) * radius,
+            y = y + math.sin(rad) * radius
+        })
+    end
+    
+    local radEnd = math.rad(endAngle)
+    table.insert(poly, {
+        x = x + math.cos(radEnd) * radius,
+        y = y + math.sin(radEnd) * radius
+    })
+    
+    surface.DrawPoly(poly)
+end
+
 if IsValid(main_inventory) then main_inventory:Remove() end
 if IsValid(lootbox_frame) then lootbox_frame:Remove() end
 if IsValid(playerinventory_frame) then playerinventory_frame:Remove() end
@@ -22,7 +60,15 @@ local color_white_for_hui = Color(255,255,255,5)
 
 inventory_slot_memory = inventory_slot_memory or {}
 
+local custom_item_data = {
+    ["ent_jack_gmod_ezammo"] = {icon = "ez_resource_icons/ammo.png", name = "Ящик патронов"},
+}
+
 local function GetItemPrintName(class, wepData)
+    if custom_item_data[class] and custom_item_data[class].name then
+        return custom_item_data[class].name
+    end
+
     if string.StartWith(class, "ent_jack_gmod_ezarmor") then
         if JMod then
             local tbls = {JMod.ArmorTable, JMod.EFTArmorTable}
@@ -41,6 +87,32 @@ local function GetItemPrintName(class, wepData)
     local printName = (wepData and wepData.PrintName) and wepData.PrintName or (wepData and wepData.GetPrintName and wepData:GetPrintName()) or language.GetPhrase(class)
     if printName == class then printName = class end
     return printName
+end
+
+local function DrawItemIcon(panel, class, wepOrData, w, h)
+    if custom_item_data[class] and custom_item_data[class].icon then
+        local iconMat = Material(custom_item_data[class].icon, "smooth")
+        if not iconMat:IsError() then
+            surface.SetDrawColor(255, 255, 255, 255)
+            surface.SetMaterial(iconMat)
+            local iconSize = w * 0.7
+            surface.DrawTexturedRect((w - iconSize) / 2, (h - iconSize) / 2 - 5, iconSize, iconSize)
+        end
+    elseif string.StartWith(class, "kb_") and wepOrData and KB_DrawWeaponSelection then
+        local sx, sy = panel:LocalToScreen(0, -15)
+        KB_DrawWeaponSelection(wepOrData, sx, sy, w, h, 255)
+    else
+        local iconMat = Material("entities/" .. class .. ".png", "smooth")
+        if not iconMat:IsError() then
+            surface.SetDrawColor(255, 255, 255, 255)
+            surface.SetMaterial(iconMat)
+            local iconSize = w * 0.7
+            surface.DrawTexturedRect((w - iconSize) / 2, (h - iconSize) / 2 - 5, iconSize, iconSize)
+        elseif wepOrData and KB_DrawWeaponSelection then
+            local sx, sy = panel:LocalToScreen(0, -15)
+            KB_DrawWeaponSelection(wepOrData, sx, sy, w, h, 255)
+        end
+    end
 end
 
 local function GetArmorSlotNames(class)
@@ -312,8 +384,9 @@ function Frame_Inventory()
                                 printName = GetItemPrintName(itemInfo.ent)
                                 rarityColor = kb.GetItemRarityColor(itemInfo.ent)
 
+                                local customIconPath = custom_item_data[itemInfo.ent] and custom_item_data[itemInfo.ent].icon or ("entities/" .. itemInfo.ent .. ".png")
                                 if not s.ItemIcon or s.LastEnt ~= itemInfo.ent then
-                                    s.ItemIcon = Material("entities/" .. itemInfo.ent .. ".png", "smooth")
+                                    s.ItemIcon = Material(customIconPath, "smooth")
                                     s.LastEnt = itemInfo.ent
                                 end
                                 iconMat = s.ItemIcon
@@ -322,8 +395,9 @@ function Frame_Inventory()
                                 printName = GetItemPrintName(slotPanel.PendingEquip)
                                 rarityColor = kb.GetItemRarityColor(slotPanel.PendingEquip)
                                 
+                                local customIconPath = custom_item_data[slotPanel.PendingEquip] and custom_item_data[slotPanel.PendingEquip].icon or ("entities/" .. slotPanel.PendingEquip .. ".png")
                                 if not s.ItemIcon or s.LastEnt ~= slotPanel.PendingEquip then
-                                    s.ItemIcon = Material("entities/" .. slotPanel.PendingEquip .. ".png", "smooth")
+                                    s.ItemIcon = Material(customIconPath, "smooth")
                                     s.LastEnt = slotPanel.PendingEquip
                                 end
                                 iconMat = s.ItemIcon
@@ -505,18 +579,7 @@ function Frame_Inventory()
 
                     local wepData = weapons.GetStored(class)
                     
-                    if string.StartWith(class, "ent_jack_gmod_ezarmor") then
-                        local iconMat = Material("entities/" .. class .. ".png", "smooth")
-                        if not iconMat:IsError() then
-                            surface.SetDrawColor(255, 255, 255, 255)
-                            surface.SetMaterial(iconMat)
-                            local iconSize = w * 0.7
-                            surface.DrawTexturedRect((w - iconSize) / 2, (h - iconSize) / 2 - 5, iconSize, iconSize)
-                        end
-                    elseif wepData then
-                        local sx, sy = s:LocalToScreen(0, -15)
-                        KB_DrawWeaponSelection(wepData, sx, sy, w, h, 255)
-                    end
+                    DrawItemIcon(s, class, wepData, w, h)
                     
                     local printName = GetItemPrintName(class, wepData)
                     
@@ -612,20 +675,7 @@ function Frame_Inventory()
                     surface.SetMaterial(gradient_down)
                     surface.DrawTexturedRect(0, 0, w, h)
 
-                    if string.StartWith(class, "ent_jack_gmod_ezarmor") then
-                        local iconMat = Material("entities/" .. class .. ".png", "smooth")
-                        if not iconMat:IsError() then
-                            surface.SetDrawColor(255, 255, 255, 255)
-                            surface.SetMaterial(iconMat)
-                            local iconSize = w * 0.7
-                            surface.DrawTexturedRect((w - iconSize) / 2, (h - iconSize) / 2 - 5, iconSize, iconSize)
-                        end
-                    else
-                        local sx, sy = s:LocalToScreen(0, -15)
-                        if KB_DrawWeaponSelection then
-                            KB_DrawWeaponSelection(wep, sx, sy, w, h, 255)
-                        end
-                    end
+                    DrawItemIcon(s, class, wep, w, h)
                     
                     draw.SimpleText(printName, "DermaDefault", w / 2, h - 6, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_BOTTOM)
                     
@@ -976,18 +1026,7 @@ net.Receive("KB_OpenLootBox", function()
 
                 local wep = weapons.GetStored(self.PendingPut)
                 
-                if string.StartWith(self.PendingPut, "ent_jack_gmod_ezarmor") then
-                    local iconMat = Material("entities/" .. self.PendingPut .. ".png", "smooth")
-                    if not iconMat:IsError() then
-                        surface.SetDrawColor(255, 255, 255, 255)
-                        surface.SetMaterial(iconMat)
-                        local iconSize = w * 0.7
-                        surface.DrawTexturedRect((w - iconSize) / 2, (h - iconSize) / 2 - 5, iconSize, iconSize)
-                    end
-                elseif wep then
-                    local sx, sy = self:LocalToScreen(0, -15)
-                    KB_DrawWeaponSelection(wep, sx, sy, w, h, 255)
-                end
+                DrawItemIcon(self, self.PendingPut, wep, w, h)
                 
                 local printName = GetItemPrintName(self.PendingPut, wep)
                 
@@ -1149,18 +1188,7 @@ net.Receive("KB_OpenLootBox", function()
                 surface.SetMaterial(gradient_down)
                 surface.DrawTexturedRect(0, 0, w, h)
 
-                if string.StartWith(self.WepClass, "ent_jack_gmod_ezarmor") then
-                    local iconMat = Material("entities/" .. self.WepClass .. ".png", "smooth")
-                    if not iconMat:IsError() then
-                        surface.SetDrawColor(255, 255, 255, 255)
-                        surface.SetMaterial(iconMat)
-                        local iconSize = w * 0.7
-                        surface.DrawTexturedRect((w - iconSize) / 2, (h - iconSize) / 2 - 5, iconSize, iconSize)
-                    end
-                elseif wep then
-                    local sx, sy = self:LocalToScreen(0, -15)
-                    KB_DrawWeaponSelection(wep, sx, sy, w, h, 255)
-                end
+                DrawItemIcon(self, self.WepClass, wep, w, h)
                 
                 draw.SimpleText(printName, "DermaDefault", w / 2, h - 6, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_BOTTOM)
                 
@@ -1508,8 +1536,9 @@ net.Receive("KB_OpenPlayerInventory", function()
                                     printName = itemData.name
                                     rarityColor = kb.GetItemRarityColor(itemInfo.ent)
 
+                                    local customIconPath = custom_item_data[itemInfo.ent] and custom_item_data[itemInfo.ent].icon or ("entities/" .. itemInfo.ent .. ".png")
                                     if not s.ItemIcon or s.LastEnt ~= itemInfo.ent then
-                                        s.ItemIcon = Material("entities/" .. itemInfo.ent .. ".png", "smooth")
+                                        s.ItemIcon = Material(customIconPath, "smooth")
                                         s.LastEnt = itemInfo.ent
                                     end
                                     iconMat = s.ItemIcon
@@ -1518,8 +1547,9 @@ net.Receive("KB_OpenPlayerInventory", function()
                                     printName = GetItemPrintName(slotPanel.PendingEquip)
                                     rarityColor = kb.GetItemRarityColor(slotPanel.PendingEquip)
                                     
+                                    local customIconPath = custom_item_data[slotPanel.PendingEquip] and custom_item_data[slotPanel.PendingEquip].icon or ("entities/" .. slotPanel.PendingEquip .. ".png")
                                     if not s.ItemIcon or s.LastEnt ~= slotPanel.PendingEquip then
-                                        s.ItemIcon = Material("entities/" .. slotPanel.PendingEquip .. ".png", "smooth")
+                                        s.ItemIcon = Material(customIconPath, "smooth")
                                         s.LastEnt = slotPanel.PendingEquip
                                     end
                                     iconMat = s.ItemIcon
@@ -1670,18 +1700,7 @@ net.Receive("KB_OpenPlayerInventory", function()
 
                 local wep = weapons.GetStored(self.PendingPut)
                 
-                if string.StartWith(self.PendingPut, "ent_jack_gmod_ezarmor") then
-                    local iconMat = Material("entities/" .. self.PendingPut .. ".png", "smooth")
-                    if not iconMat:IsError() then
-                        surface.SetDrawColor(255, 255, 255, 255)
-                        surface.SetMaterial(iconMat)
-                        local iconSize = w * 0.7
-                        surface.DrawTexturedRect((w - iconSize) / 2, (h - iconSize) / 2 - 5, iconSize, iconSize)
-                    end
-                elseif wep then
-                    local sx, sy = self:LocalToScreen(0, -15)
-                    KB_DrawWeaponSelection(wep, sx, sy, w, h, 255)
-                end
+                DrawItemIcon(self, self.PendingPut, wep, w, h)
                 
                 local printName = GetItemPrintName(self.PendingPut, wep)
                 
@@ -1842,18 +1861,7 @@ net.Receive("KB_OpenPlayerInventory", function()
                 surface.SetMaterial(gradient_down)
                 surface.DrawTexturedRect(0, 0, w, h)
 
-                if string.StartWith(self.WepClass, "ent_jack_gmod_ezarmor") then
-                    local iconMat = Material("entities/" .. self.WepClass .. ".png", "smooth")
-                    if not iconMat:IsError() then
-                        surface.SetDrawColor(255, 255, 255, 255)
-                        surface.SetMaterial(iconMat)
-                        local iconSize = w * 0.7
-                        surface.DrawTexturedRect((w - iconSize) / 2, (h - iconSize) / 2 - 5, iconSize, iconSize)
-                    end
-                elseif wep then
-                    local sx, sy = self:LocalToScreen(0, -15)
-                    KB_DrawWeaponSelection(wep, sx, sy, w, h, 255)
-                end
+                DrawItemIcon(self, self.WepClass, wep, w, h)
                 
                 draw.SimpleText(printName, "DermaDefault", w / 2, h - 6, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_BOTTOM)
                 
