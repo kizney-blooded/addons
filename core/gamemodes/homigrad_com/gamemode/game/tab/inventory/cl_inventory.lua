@@ -687,7 +687,71 @@ function Frame_Inventory()
                     end
                 end
                 
-                btn.DoClick = function() end
+                btn.Think = function(self)
+                    if self:IsHovered() and (input.IsKeyDown(KEY_LSHIFT) or input.IsKeyDown(KEY_RSHIFT)) and input.IsMouseDown(MOUSE_LEFT) then
+                        if not self.SwipeClaimed then
+                            self.SwipeClaimed = true
+                            self:DoClick()
+                        end
+                    end
+                end
+
+                btn.DoClick = function(self)
+                    local active_frame
+                    if IsValid(lootbox_frame) and not lootbox_frame.isClosing then
+                        active_frame = lootbox_frame
+                    elseif IsValid(playerinventory_frame) and not playerinventory_frame.isClosing then
+                        active_frame = playerinventory_frame
+                    end
+                    
+                    if not active_frame or not IsValid(active_frame.ContainerEnt) then 
+                        self.SwipeClaimed = false
+                        return 
+                    end
+                    
+                    local target_slot
+                    for _, slotPnl in ipairs(active_frame.Scroll:GetCanvas():GetChildren()) do
+                        if not slotPnl.PendingPut then
+                            local is_empty = true
+                            for _, child in ipairs(slotPnl:GetChildren()) do
+                                if child:GetName() == "DButton" and child:IsVisible() then
+                                    is_empty = false
+                                    break
+                                end
+                            end
+                            if is_empty then
+                                target_slot = slotPnl
+                                break
+                            end
+                        end
+                    end
+
+                    if target_slot then
+                        local _, put_snd = kb.GetSoundClaimOrPut(self.WepClass)
+                        surface.PlaySound(put_snd)
+                        
+                        net.Start("KB_PutItem")
+                            net.WriteEntity(active_frame.ContainerEnt)
+                            net.WriteUInt(target_slot.SlotIndex, 8) 
+                            net.WriteString(self.WepClass)
+                        net.SendToServer()
+                        
+                        self:SetVisible(false)
+                        target_slot.PendingPut = self.WepClass
+                        
+                        timer.Simple(0.1, function()
+                            if IsValid(target_slot) and target_slot.PendingPut == self.WepClass then
+                                target_slot.PendingPut = nil
+                            end
+                            if IsValid(self) then
+                                self:SetVisible(true)
+                                self.SwipeClaimed = false
+                            end
+                        end)
+                    else
+                        self.SwipeClaimed = false 
+                    end
+                end
             end
         end
 
@@ -940,6 +1004,8 @@ net.Receive("KB_OpenLootBox", function()
         lootbox_frame.Scroll:SetPos((frameW - contentWidth) / 2, paddingTop)
     end
 
+    lootbox_frame.ContainerEnt = box_ent
+
     local remainingItems = 0
     for _, item in pairs(items) do
         if type(item) == "table" and not item.claimed then
@@ -1172,6 +1238,15 @@ net.Receive("KB_OpenLootBox", function()
             btn.WepClass = item.class
             btn.IsLootboxItem = true
             btn:Droppable("KB_Item")
+
+            btn.Think = function(self)
+                if self:IsHovered() and (input.IsKeyDown(KEY_LSHIFT) or input.IsKeyDown(KEY_RSHIFT)) and input.IsMouseDown(MOUSE_LEFT) then
+                    if not self.SwipeClaimed then
+                        self.SwipeClaimed = true
+                        self:DoClick()
+                    end
+                end
+            end
 
             btn.OnStartDragging = function(self)
                 self:SetPaintedManually(true)
@@ -1614,6 +1689,8 @@ net.Receive("KB_OpenPlayerInventory", function()
 
     playerinventory_frame:MoveToFront()
 
+    playerinventory_frame.ContainerEnt = player_ent
+
     local remainingItems = 0
     for _, item in pairs(items) do
         if type(item) == "table" and not item.claimed then
@@ -1845,6 +1922,15 @@ net.Receive("KB_OpenPlayerInventory", function()
             btn.WepClass = item.class
             btn.IsLootboxItem = true
             btn:Droppable("KB_Item")
+
+            btn.Think = function(self)
+                if self:IsHovered() and (input.IsKeyDown(KEY_LSHIFT) or input.IsKeyDown(KEY_RSHIFT)) and input.IsMouseDown(MOUSE_LEFT) then
+                    if not self.SwipeClaimed then
+                        self.SwipeClaimed = true
+                        self:DoClick()
+                    end
+                end
+            end
 
             btn.OnStartDragging = function(self)
                 self:SetPaintedManually(true)
