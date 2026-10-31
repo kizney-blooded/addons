@@ -21,7 +21,7 @@ hook.Add("HUDPaintBackground", "JMOD_HUDBG", function()
 	if ply.EZarmor then
 
 		local ArmorMaskmats = ply.EZarmor.mskmats
-		if ArmorMaskmats and not(table.IsEmpty(ArmorMaskmats)) and Alive and not ThirdPerson then
+		--[[if ArmorMaskmats and not(table.IsEmpty(ArmorMaskmats)) and Alive and not ThirdPerson then
 
 			local Col = render.GetLightColor(EyePos())
 			for id, maskMat in pairs(ArmorMaskmats) do -- TODO: Sort by slot relevance
@@ -38,7 +38,7 @@ hook.Add("HUDPaintBackground", "JMOD_HUDBG", function()
 				surface.DrawTexturedRect(-1, -1, ScrW() + 2, ScrH() + 2)
 				surface.DrawTexturedRect(-1, -1, ScrW() + 2, ScrH() + 2)
 			end
-		end
+		end--]]
 
 		PlaySndLoop = Alive and ply.EZarmor.sndlop and not ThirdPerson
 

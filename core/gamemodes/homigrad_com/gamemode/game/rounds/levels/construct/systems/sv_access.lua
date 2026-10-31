@@ -31,6 +31,10 @@ hook.Add("PhysgunPickup", "ZGPropKilLPickup", function(ply, ent)
     if class != "prop_physics" and class != "con_lootbox" and class != "ent_jack_sleepingbag" and class != "con_shkaf" then 
         return 
     end
+
+    if ent:CPPIGetOwner() ~= ply then 
+        return false 
+    end
 	
 	ent.oldColor = ent:GetColor();
 	ent.oldMat = ent:GetMaterial();
