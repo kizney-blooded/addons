@@ -46,7 +46,7 @@ hook.Add( "CalcView", "MyCalcView", function( ply, pos, angles, fov )
     
     local base_angles = angles - punch
     
-    smooth_angle = LerpAngle(ft * 15, smooth_angle, base_angles)
+    smooth_angle = LerpAngle(ft * 20, smooth_angle, base_angles)
     
     local result_angle = smooth_angle + punch
 

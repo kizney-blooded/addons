@@ -38,13 +38,13 @@ local function CreateScoreboard()
     CustomScoreboard.Paint = function(self, w, h)
         draw.RoundedBox(0, 0, 0, w, h, Color(30, 30, 30, 240))
         
-        draw.SimpleText("Кол-во игроков: " .. player.GetCount(), "ChatFont", 10, 20, color_white, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+        draw.SimpleText("Кол-во игроков: " .. player.GetCount(), "KB.4", 10, 20, color_white, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
 
         draw.SimpleText("KIZNEY BOX", "KB.1", w / 2 , h / 2, color_white_for_hui, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 
         draw.SimpleText(
             "Тикрейт сервера - " .. tickrate, 
-            "ChatFont", 
+            "KB.4", 
             w - 10, 
             h - 10, 
             trColor, 
@@ -95,11 +95,11 @@ local function CreateScoreboard()
 
                 if not IsValid(ply) then return end
 
-                draw.SimpleText(ply:Nick(), "ChatFont", 15, ph / 2, color_white, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+                draw.SimpleText(ply:Nick(), "KB.4", 15, ph / 2, color_white, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
 
-                draw.SimpleText(ply:GetUserGroup(), "ChatFont", pw / 2, ph / 2, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+                draw.SimpleText(ply:GetUserGroup(), "KB.4", pw / 2, ph / 2, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 
-                draw.SimpleText(ply:Ping() .. " ms", "ChatFont", pw - 15, ph / 2, color_white, TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER)
+                draw.SimpleText(ply:Ping() .. " ms", "KB.4", pw - 15, ph / 2, color_white, TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER)
 
                 if self:IsHovered() then
                     draw.RoundedBox(0, 0, 0, w, h, Color(255, 255, 255, 2))
