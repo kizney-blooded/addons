@@ -1,5 +1,15 @@
--- господи помилуй мой инвентарь, это ужас, я уже запутался в нем сделал и больше не заходить
+kb_transfer_states = kb_transfer_states or {}
 
+local function GetBtnID(btn)
+    if btn.IsTargetArmor then
+        return "t_armor_" .. tostring(btn.ArmorSlotName)
+    elseif btn.IsLootboxItem then
+        local ent_id = IsValid(btn.BoxEnt) and btn.BoxEnt:EntIndex() or "0"
+        return "box_" .. ent_id .. "_slot_" .. tostring(btn.SlotIndex)
+    else
+        return "l_wep_" .. tostring(btn.WepClass)
+    end
+end
 
 function draw.CircleProcessing(x, y, radius, progress, color)
     progress = math.Clamp(progress, 0, 1)
@@ -168,6 +178,8 @@ end)
 function Frame_Inventory()
     if IsValid(main_inventory) then return end
     
+    kb_transfer_states = {}
+
     main_inventory = vgui.Create("DPanel")
     main_inventory:SetSize(ScrW(), ScrH())
     main_inventory:SetPos(0, 0)
@@ -340,6 +352,16 @@ function Frame_Inventory()
                     btn:SetSize(slotSize, slotSize)
                     btn:SetText("")
                     btn:Droppable("KB_Item")
+
+                    local oldDragMousePress = btn.DragMousePress
+                    btn.DragMousePress = function(self, mcode)
+                        if input.IsKeyDown(KEY_LSHIFT) or input.IsKeyDown(KEY_RSHIFT) then
+                            return
+                        end
+                        if oldDragMousePress then
+                            return oldDragMousePress(self, mcode)
+                        end
+                    end
 
                     btn.OnStartDragging = function(self)
                         local ply = LocalPlayer()
@@ -660,6 +682,16 @@ function Frame_Inventory()
                 btn.WepClass = class
                 btn:Droppable("KB_Item") 
 
+                local oldDragMousePress = btn.DragMousePress
+                btn.DragMousePress = function(self, mcode)
+                    if input.IsKeyDown(KEY_LSHIFT) or input.IsKeyDown(KEY_RSHIFT) then
+                        return
+                    end
+                    if oldDragMousePress then
+                        return oldDragMousePress(self, mcode)
+                    end
+                end
+
                 btn.OnStartDragging = function(self)
                     self:SetPaintedManually(true)
                     local claim_snd = kb.GetSoundClaimOrPut(self.WepClass)
@@ -685,18 +717,45 @@ function Frame_Inventory()
                     if s:IsHovered() then
                         draw.RoundedBox(0, 0, 0, w, h, Color(255, 255, 255, 2))
                     end
+
+                    local id = GetBtnID(s)
+                    if kb_transfer_states[id] and kb_transfer_states[id].start then
+                        local progress = math.Clamp((CurTime() - kb_transfer_states[id].start) / 0.7, 0, 1)
+                        draw.CircleProcessing(w / 2, h / 2, w * 0.3, progress, color_white)
+                    end
                 end
                 
                 btn.Think = function(self)
+                    local id = GetBtnID(self)
                     if self:IsHovered() and (input.IsKeyDown(KEY_LSHIFT) or input.IsKeyDown(KEY_RSHIFT)) and input.IsMouseDown(MOUSE_LEFT) then
-                        if not self.SwipeClaimed then
-                            self.SwipeClaimed = true
+                        if not kb_transfer_states[id] or not kb_transfer_states[id].swiped then
+                            kb_transfer_states[id] = kb_transfer_states[id] or {}
+                            kb_transfer_states[id].swiped = true
                             self:DoClick()
+                        end
+                    end
+                    
+                    if kb_transfer_states[id] and kb_transfer_states[id].start then
+                        if CurTime() - kb_transfer_states[id].start >= 0.7 then
+                            kb_transfer_states[id].start = nil
+                            self:ExecuteTransfer()
                         end
                     end
                 end
 
                 btn.DoClick = function(self)
+                    local id = GetBtnID(self)
+                    kb_transfer_states[id] = kb_transfer_states[id] or {}
+                    if kb_transfer_states[id].start then return end
+                    kb_transfer_states[id].start = CurTime()
+
+                    surface.PlaySound("physics/rock_impact_soft" .. math.random(1, 3) .. ".wav")
+                end
+                
+                btn.ExecuteTransfer = function(self)
+                    local id = GetBtnID(self)
+                    kb_transfer_states[id] = nil
+
                     local active_frame
                     if IsValid(lootbox_frame) and not lootbox_frame.isClosing then
                         active_frame = lootbox_frame
@@ -705,13 +764,20 @@ function Frame_Inventory()
                     end
                     
                     if not active_frame or not IsValid(active_frame.ContainerEnt) then 
-                        self.SwipeClaimed = false
                         return 
                     end
                     
                     local target_slot
+                    active_frame.ReservedTargetSlots = active_frame.ReservedTargetSlots or {}
+
                     for _, slotPnl in ipairs(active_frame.Scroll:GetCanvas():GetChildren()) do
-                        if not slotPnl.PendingPut then
+                        local idx = slotPnl.SlotIndex
+                        
+                        if active_frame.ReservedTargetSlots[idx] and CurTime() > active_frame.ReservedTargetSlots[idx] then
+                            active_frame.ReservedTargetSlots[idx] = nil
+                        end
+
+                        if not slotPnl.PendingPut and not active_frame.ReservedTargetSlots[idx] then
                             local is_empty = true
                             for _, child in ipairs(slotPnl:GetChildren()) do
                                 if child:GetName() == "DButton" and child:IsVisible() then
@@ -727,6 +793,8 @@ function Frame_Inventory()
                     end
 
                     if target_slot then
+                        active_frame.ReservedTargetSlots[target_slot.SlotIndex] = CurTime() + 1
+
                         local _, put_snd = kb.GetSoundClaimOrPut(self.WepClass)
                         surface.PlaySound(put_snd)
                         
@@ -745,11 +813,8 @@ function Frame_Inventory()
                             end
                             if IsValid(self) then
                                 self:SetVisible(true)
-                                self.SwipeClaimed = false
                             end
                         end)
-                    else
-                        self.SwipeClaimed = false 
                     end
                 end
             end
@@ -1239,11 +1304,30 @@ net.Receive("KB_OpenLootBox", function()
             btn.IsLootboxItem = true
             btn:Droppable("KB_Item")
 
+            local oldDragMousePress = btn.DragMousePress
+            btn.DragMousePress = function(self, mcode)
+                if input.IsKeyDown(KEY_LSHIFT) or input.IsKeyDown(KEY_RSHIFT) then
+                    return
+                end
+                if oldDragMousePress then
+                    return oldDragMousePress(self, mcode)
+                end
+            end
+
             btn.Think = function(self)
+                local id = GetBtnID(self)
                 if self:IsHovered() and (input.IsKeyDown(KEY_LSHIFT) or input.IsKeyDown(KEY_RSHIFT)) and input.IsMouseDown(MOUSE_LEFT) then
-                    if not self.SwipeClaimed then
-                        self.SwipeClaimed = true
+                    if not kb_transfer_states[id] or not kb_transfer_states[id].swiped then
+                        kb_transfer_states[id] = kb_transfer_states[id] or {}
+                        kb_transfer_states[id].swiped = true
                         self:DoClick()
+                    end
+                end
+
+                if kb_transfer_states[id] and kb_transfer_states[id].start then
+                    if CurTime() - kb_transfer_states[id].start >= 0.7 then
+                        kb_transfer_states[id].start = nil
+                        self:ExecuteTransfer()
                     end
                 end
             end
@@ -1273,15 +1357,33 @@ net.Receive("KB_OpenLootBox", function()
                 if self:IsHovered() then
                     draw.RoundedBox(0, 0, 0, w, h, Color(255, 255, 255, 2))
                 end
+
+                local id = GetBtnID(self)
+                if kb_transfer_states[id] and kb_transfer_states[id].start then
+                    local progress = math.Clamp((CurTime() - kb_transfer_states[id].start) / 0.7, 0, 1)
+                    draw.CircleProcessing(w / 2, h / 2, w * 0.3, progress, color_white)
+                end
             end
             
-            btn.DoClick = function()
-                local claim_snd = kb.GetSoundClaimOrPut(btn.WepClass)
+            btn.DoClick = function(self)
+                local id = GetBtnID(self)
+                kb_transfer_states[id] = kb_transfer_states[id] or {}
+                if kb_transfer_states[id].start then return end
+                kb_transfer_states[id].start = CurTime()
+
+                surface.PlaySound("physics/rock_impact_soft" .. math.random(1, 3) .. ".wav")
+            end
+            
+            btn.ExecuteTransfer = function(self)
+                local id = GetBtnID(self)
+                kb_transfer_states[id] = nil
+                
+                local claim_snd = kb.GetSoundClaimOrPut(self.WepClass)
                 surface.PlaySound(claim_snd)
 
                 net.Start("KB_ClaimLoot")
                     net.WriteEntity(box_ent)
-                    net.WriteUInt(btn.SlotIndex, 8) 
+                    net.WriteUInt(self.SlotIndex, 8) 
                 net.SendToServer()
 
                 if not string.StartWith(item.class, "ent_jack_gmod_ezarmor") and not LocalPlayer():HasWeapon(item.class) then
@@ -1289,8 +1391,8 @@ net.Receive("KB_OpenLootBox", function()
                         local dummy = vgui.Create("Panel", main_inventory.invPanel) 
                         dummy.PendingClaim = item.class
                         
-                        if btn.TargetSlotIndex then
-                            dummy.TargetSlotIndex = btn.TargetSlotIndex
+                        if self.TargetSlotIndex then
+                            dummy.TargetSlotIndex = self.TargetSlotIndex
                         end
                         
                         main_inventory.invPanel:Refresh()
@@ -1298,7 +1400,7 @@ net.Receive("KB_OpenLootBox", function()
                 end
 
                 if string.StartWith(item.class, "ent_jack_gmod_ezarmor") or not LocalPlayer():HasWeapon(item.class) then
-                    btn:Remove()
+                    self:Remove()
                     
                     lootbox_frame.RemainingItems = lootbox_frame.RemainingItems - 1
                     if lootbox_frame.RemainingItems <= 0 then
@@ -1567,8 +1669,19 @@ net.Receive("KB_OpenPlayerInventory", function()
                         btn:SetText("")
                         
                         btn.IsTargetArmor = true
+                        btn.ArmorSlotName = slotName
                         btn.ArmorOwner_Container = target_ply 
                         btn:Droppable("KB_Item")
+
+                        local oldDragMousePress = btn.DragMousePress
+                        btn.DragMousePress = function(self, mcode)
+                            if input.IsKeyDown(KEY_LSHIFT) or input.IsKeyDown(KEY_RSHIFT) then
+                                return
+                            end
+                            if oldDragMousePress then
+                                return oldDragMousePress(self, mcode)
+                            end
+                        end
 
                         btn.OnStartDragging = function(self)
                             if not IsValid(target_ply) or not target_ply.EZarmor then return false end
@@ -1652,9 +1765,37 @@ net.Receive("KB_OpenPlayerInventory", function()
                             if s:IsHovered() then
                                 draw.RoundedBox(0, 0, 0, w, h, Color(255, 255, 255, 2))
                             end
+
+                            local id = GetBtnID(s)
+                            if kb_transfer_states[id] and kb_transfer_states[id].start then
+                                local progress = math.Clamp((CurTime() - kb_transfer_states[id].start) / 0.7, 0, 1)
+                                draw.CircleProcessing(w / 2, h / 2, w * 0.3, progress, color_white)
+                            end
                         end
                         
+                        btn.Think = function(self)
+                            local id = GetBtnID(self)
+                            if kb_transfer_states[id] and kb_transfer_states[id].start then
+                                if CurTime() - kb_transfer_states[id].start >= 0.7 then
+                                    kb_transfer_states[id].start = nil
+                                    self:ExecuteTransfer()
+                                end
+                            end
+                        end
+
                         btn.DoClick = function(self)
+                            local id = GetBtnID(self)
+                            kb_transfer_states[id] = kb_transfer_states[id] or {}
+                            if kb_transfer_states[id].start then return end
+                            kb_transfer_states[id].start = CurTime()
+
+                            surface.PlaySound("physics/rock_impact_soft" .. math.random(1, 3) .. ".wav")
+                        end
+
+                        btn.ExecuteTransfer = function(self)
+                            local id = GetBtnID(self)
+                            kb_transfer_states[id] = nil
+
                             if not IsValid(target_ply) or not target_ply.EZarmor then return end
                             
                             local itemID, itemData, itemInfo = JMod.GetItemInSlot(target_ply.EZarmor, slotName)
@@ -1892,7 +2033,7 @@ net.Receive("KB_OpenPlayerInventory", function()
                         pnl:SetVisible(false)
                         self_pnl.PendingPut = pnl.WepClass
                         
-                        timer.Simple(0.5, function()
+                        timer.Simple(0.1, function()
                             if IsValid(self_pnl) and self_pnl.PendingPut == pnl.WepClass then
                                 self_pnl.PendingPut = nil
                             end
@@ -1923,11 +2064,30 @@ net.Receive("KB_OpenPlayerInventory", function()
             btn.IsLootboxItem = true
             btn:Droppable("KB_Item")
 
+            local oldDragMousePress = btn.DragMousePress
+            btn.DragMousePress = function(self, mcode)
+                if input.IsKeyDown(KEY_LSHIFT) or input.IsKeyDown(KEY_RSHIFT) then
+                    return
+                end
+                if oldDragMousePress then
+                    return oldDragMousePress(self, mcode)
+                end
+            end
+
             btn.Think = function(self)
+                local id = GetBtnID(self)
                 if self:IsHovered() and (input.IsKeyDown(KEY_LSHIFT) or input.IsKeyDown(KEY_RSHIFT)) and input.IsMouseDown(MOUSE_LEFT) then
-                    if not self.SwipeClaimed then
-                        self.SwipeClaimed = true
+                    if not kb_transfer_states[id] or not kb_transfer_states[id].swiped then
+                        kb_transfer_states[id] = kb_transfer_states[id] or {}
+                        kb_transfer_states[id].swiped = true
                         self:DoClick()
+                    end
+                end
+
+                if kb_transfer_states[id] and kb_transfer_states[id].start then
+                    if CurTime() - kb_transfer_states[id].start >= 0.7 then
+                        kb_transfer_states[id].start = nil
+                        self:ExecuteTransfer()
                     end
                 end
             end
@@ -1957,15 +2117,33 @@ net.Receive("KB_OpenPlayerInventory", function()
                 if self:IsHovered() then
                     draw.RoundedBox(0, 0, 0, w, h, Color(255, 255, 255, 2))
                 end
+
+                local id = GetBtnID(self)
+                if kb_transfer_states[id] and kb_transfer_states[id].start then
+                    local progress = math.Clamp((CurTime() - kb_transfer_states[id].start) / 0.7, 0, 1)
+                    draw.CircleProcessing(w / 2, h / 2, w * 0.3, progress, color_white)
+                end
             end
             
-            btn.DoClick = function()
-                local claim_snd = kb.GetSoundClaimOrPut(btn.WepClass)
+            btn.DoClick = function(self)
+                local id = GetBtnID(self)
+                kb_transfer_states[id] = kb_transfer_states[id] or {}
+                if kb_transfer_states[id].start then return end
+                kb_transfer_states[id].start = CurTime()
+
+                surface.PlaySound("physics/rock_impact_soft" .. math.random(1, 3) .. ".wav")
+            end
+            
+            btn.ExecuteTransfer = function(self)
+                local id = GetBtnID(self)
+                kb_transfer_states[id] = nil
+
+                local claim_snd = kb.GetSoundClaimOrPut(self.WepClass)
                 surface.PlaySound(claim_snd)
 
                 net.Start("KB_ClaimLoot")
                     net.WriteEntity(player_ent)
-                    net.WriteUInt(btn.SlotIndex, 8) 
+                    net.WriteUInt(self.SlotIndex, 8) 
                 net.SendToServer()
 
                 if not string.StartWith(item.class, "ent_jack_gmod_ezarmor") and not LocalPlayer():HasWeapon(item.class) then
@@ -1973,8 +2151,8 @@ net.Receive("KB_OpenPlayerInventory", function()
                         local dummy = vgui.Create("Panel", main_inventory.invPanel) 
                         dummy.PendingClaim = item.class
                         
-                        if btn.TargetSlotIndex then
-                            dummy.TargetSlotIndex = btn.TargetSlotIndex
+                        if self.TargetSlotIndex then
+                            dummy.TargetSlotIndex = self.TargetSlotIndex
                         end
                         
                         main_inventory.invPanel:Refresh()
@@ -1982,7 +2160,7 @@ net.Receive("KB_OpenPlayerInventory", function()
                 end
 
                 if string.StartWith(item.class, "ent_jack_gmod_ezarmor") or not LocalPlayer():HasWeapon(item.class) then
-                    btn:Remove()
+                    self:Remove()
                     
                     playerinventory_frame.RemainingItems = playerinventory_frame.RemainingItems - 1
                 end
