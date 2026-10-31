@@ -175,6 +175,13 @@ net.Receive("KB_SyncInventorySlots", function()
     end
 end)
 
+local function HasBackpackEquipped()
+    local ply = LocalPlayer()
+    if not ply.EZarmor then return false end
+    local itemID = JMod.GetItemInSlot(ply.EZarmor, "back")
+    return itemID ~= nil
+end
+
 function Frame_Inventory()
     if IsValid(main_inventory) then return end
     
@@ -461,14 +468,19 @@ function Frame_Inventory()
     main_inventory.invPanel = invPanel
     local slotSize = 75
     local spacing = 0
-    local cols = 8
+    local mainCols = 8
     
-    local invW = cols * slotSize + (cols - 1) * spacing
-    local invH = slotSize
+    local mainW = mainCols * slotSize + (mainCols - 1) * spacing
+    local bpGap = 20
+    local bpCols = 2
+    local bpRows = 3
     
-    invPanel:SetSize(invW, invH)
-    invPanel:SetPos((ScrW() - invW) / 2, ScrH() - invH)
-    invPanel.Paint = function() end 
+    local totalW = mainW + bpGap + (bpCols * slotSize)
+    local totalH = bpRows * slotSize
+    
+    invPanel:SetSize(totalW, totalH)
+    invPanel:SetPos((ScrW() - totalW) / 2, ScrH() - totalH)
+    invPanel.Paint = function() end
 
     invPanel.Think = function(self)
         local weps = LocalPlayer():GetWeapons()
@@ -479,13 +491,18 @@ function Frame_Inventory()
             end
         end
         
-        if self.LastWepCount ~= count then
+        local has_backpack = HasBackpackEquipped()
+        if self.LastWepCount ~= count or self.LastBackpackState ~= has_backpack then
             self.LastWepCount = count
+            self.LastBackpackState = has_backpack
             self:Refresh()
         end
     end
 
     invPanel.Refresh = function(self)
+        local has_backpack = HasBackpackEquipped()
+        local max_slots = has_backpack and 14 or 8
+
         local pending_claims = {}
         local targeted_claims = {}
 
@@ -510,20 +527,26 @@ function Frame_Inventory()
             end
         end
 
-        for i = 1, 8 do
+        -- Сбрасываем память лишних слотов, если рюкзак снят
+        for i = 1, 14 do
             local stored_class = inventory_slot_memory[i]
             if stored_class and not current_classes[stored_class] and targeted_claims[i] ~= stored_class then
+                inventory_slot_memory[i] = nil
+            end
+            if i > 8 and not has_backpack then
                 inventory_slot_memory[i] = nil
             end
         end
 
         for slot_idx, class in pairs(targeted_claims) do
-            inventory_slot_memory[slot_idx] = class
+            if slot_idx <= max_slots then
+                inventory_slot_memory[slot_idx] = class
+            end
         end
 
         for class, wep in pairs(current_classes) do
             local is_stored = false
-            for i = 1, 8 do
+            for i = 1, max_slots do
                 if inventory_slot_memory[i] == class then
                     is_stored = true
                     break
@@ -531,7 +554,7 @@ function Frame_Inventory()
             end
             
             if not is_stored then
-                for i = 1, 8 do
+                for i = 1, max_slots do
                     if not inventory_slot_memory[i] then
                         inventory_slot_memory[i] = class
                         break
@@ -543,8 +566,10 @@ function Frame_Inventory()
         local active_pending = {}
         local real_classes = {}
         
-        for _, class in pairs(inventory_slot_memory) do
-            real_classes[class] = true
+        for i = 1, max_slots do
+            if inventory_slot_memory[i] then
+                real_classes[inventory_slot_memory[i]] = true
+            end
         end
 
         for _, class in ipairs(pending_claims) do
@@ -552,11 +577,23 @@ function Frame_Inventory()
                 table.insert(active_pending, class)
             end
         end
+                
 
-        for i = 1, 8 do
+        for i = 1, max_slots do
             local slotPanel = vgui.Create("DPanel", self)
             slotPanel:SetSize(slotSize, slotSize)
-            slotPanel:SetPos((i - 1) * (slotSize + spacing), 0)
+
+            if i <= 8 then
+                slotPanel:SetPos((i - 1) * (slotSize + spacing), totalH - slotSize)
+            else
+                local bpIndex = i - 9
+                local col = bpIndex % 2
+                local row = math.floor(bpIndex / 2)
+                
+                local bpX = mainW + bpGap + (col * slotSize)
+                local bpY = totalH - (3 * slotSize) + (row * slotSize)
+                slotPanel:SetPos(bpX, bpY)
+            end
             
             local wep_class = inventory_slot_memory[i]
             local wep = wep_class and current_classes[wep_class] or nil
