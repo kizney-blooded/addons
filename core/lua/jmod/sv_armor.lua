@@ -492,6 +492,10 @@ function JMod.RemoveArmorByID(ply, ID, broken)
 		if Info.chrg then
 			Ent.ArmorCharges = table.FullCopy(Info.chrg)
 		end
+        
+        if Info.KB_StoredWeapons then
+            Ent.KB_StoredWeapons = table.FullCopy(Info.KB_StoredWeapons)
+        end
 
 		Ent.EZID = ID
 		Ent:SetColor(Info.col)
@@ -617,7 +621,7 @@ function JMod.EZ_Equip_Armor(ply, nameOrEnt)
 		NewArmorColor = nameOrEnt:GetColor()
 		NewArmorCharges = nameOrEnt.ArmorCharges
 		if not(nameOrEnt.JModInv) and not(nameOrEnt.ammoStored) then
-			nameOrEnt:Remove()
+			timer.Simple(0, function() if IsValid(nameOrEnt) then nameOrEnt:Remove() end end)
 		end
 	else
 		NewArmorSpecs = JMod.ArmorTable[NewArmorName]
@@ -654,7 +658,8 @@ function JMod.EZ_Equip_Armor(ply, nameOrEnt)
 		col = NewArmorColor,
 		chrg = NewArmorCharges,
 		id = NewArmorID,
-		tgl = false
+		tgl = false,
+        KB_StoredWeapons = (IsValid(nameOrEnt) and type(nameOrEnt) ~= "string" and nameOrEnt.KB_StoredWeapons) and table.FullCopy(nameOrEnt.KB_StoredWeapons) or {}
 	}
 
 	ply.EZarmor.items[NewArmorID] = NewVirtualArmorItem
@@ -684,7 +689,7 @@ function JMod.EZ_Equip_Armor(ply, nameOrEnt)
 		ply:EmitSound(table.Random(EquipSounds), 60, math.random(80, 120))
 	end
 
-	if IsValid(nameOrEnt) then
+	if IsValid(nameOrEnt) and type(nameOrEnt) ~= "string" then
 		if nameOrEnt.JModInv then
 			nameOrEnt.KeepJModInv = true
 			for _, v in ipairs(nameOrEnt.JModInv.items) do
@@ -701,7 +706,6 @@ function JMod.EZ_Equip_Armor(ply, nameOrEnt)
 				JMod.GiveAmmo(ply, k, v)
 			end
 		end
-		nameOrEnt:Remove()
 	end
 
 	JMod.CalcSpeed(ply)
