@@ -25,7 +25,7 @@ SWEP.ReloadTime = 2
 
 SWEP.WorldPos = { Pos = Vector(0.00, 0.00, 0.00), Ang = Angle(30.00, 50.00, 90.00) }
 SWEP.LWorldPos = { Pos = Vector(-0.38, -3.41, 0.00), Ang = Angle(0.00, 0.00, 0.00) }
-SWEP.SightPos = { Pos = Vector(-2.80, -3.41, 1.60), Ang = Angle(0.68, 0.00, 0.00), FOV = 85.00, Speed = 4.00 }
+SWEP.SightPos = { Pos = Vector(-2.80, -3.41, 1.60), Ang = Angle(0.68, 0.00, 0.00), FOV = 85.00, Speed = 15.00 }
 
 
 SWEP.IconPos = {
