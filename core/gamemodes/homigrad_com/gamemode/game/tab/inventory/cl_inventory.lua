@@ -1,4 +1,6 @@
 kb_transfer_states = kb_transfer_states or {}
+kb_expected_items = kb_expected_items or {}
+kb_pending_transfer_time = 0
 
 local function GetBtnID(btn)
     if btn.IsTargetArmor then
@@ -13,22 +15,18 @@ end
 
 function draw.CircleProcessing(x, y, radius, progress, color)
     progress = math.Clamp(progress, 0, 1)
-    
     if progress <= 0 then return end
     
     surface.SetDrawColor(color.r, color.g, color.b, color.a or 255)
     draw.NoTexture()
     
     local poly = {}
-    
     table.insert(poly, { x = x, y = y })
     
     local segments = 64
     local startAngle = -90
-    
     local currentAngle = startAngle + (360 * (1 - progress))
     local endAngle = startAngle + 360
-    
     local step = 360 / segments
     
     for i = currentAngle, endAngle, step do
@@ -66,8 +64,7 @@ local weapon_blacklist = {
     ["weapon_physgun"] = true,
 }
 
-local color_white_for_hui = Color(255,255,255,5)
-
+local color_white_for_hui = Color(255, 255, 255, 5)
 inventory_slot_memory = inventory_slot_memory or {}
 
 local custom_item_data = {
@@ -156,20 +153,7 @@ local function SyncInventorySlotsToServer()
 end
 
 net.Receive("KB_SyncInventorySlots", function()
-    local new_memory = net.ReadTable()
-    
-    if IsValid(main_inventory) and IsValid(main_inventory.invPanel) then
-        for slot_idx, class in pairs(new_memory) do
-            if not weapon_blacklist[class] and not LocalPlayer():HasWeapon(class) then
-                local dummy = vgui.Create("Panel", main_inventory.invPanel)
-                dummy.PendingClaim = class
-                dummy.TargetSlotIndex = slot_idx
-            end
-        end
-    end
-    
-    inventory_slot_memory = new_memory
-    
+    inventory_slot_memory = net.ReadTable() or {}
     if IsValid(main_inventory) and IsValid(main_inventory.invPanel) then
         main_inventory.invPanel:Refresh()
     end
@@ -180,6 +164,19 @@ local function HasBackpackEquipped()
     if not ply.EZarmor then return false end
     local itemID = JMod.GetItemInSlot(ply.EZarmor, "back")
     return itemID ~= nil
+end
+
+local function ClearLocalBackpackSlot(index)
+    local ply = LocalPlayer()
+    if ply.EZarmor and ply.EZarmor.items then
+        for id, data in pairs(ply.EZarmor.items) do
+            local info = JMod.ArmorTable[data.name]
+            if info and info.slots and info.slots["back"] and data.KB_StoredWeapons then
+                data.KB_StoredWeapons[index] = nil
+                break
+            end
+        end
+    end
 end
 
 function Frame_Inventory()
@@ -311,13 +308,6 @@ function Frame_Inventory()
                                 surface.PlaySound(put_snd)
                                 pnl.PendingDrop = true
                                 
-                                local tSlots = GetArmorSlotNames(pnl.ArmorEntClass)
-                                for _, sName in ipairs(tSlots) do
-                                    if parent_panel.ArmorSlotPanels[sName] then
-                                        parent_panel.ArmorSlotPanels[sName].PendingEquip = pnl.ArmorEntClass
-                                    end
-                                end
-                                
                                 net.Start("KB_TransferArmorToLocal")
                                 net.WriteEntity(pnl.ArmorOwner_Container)
                                 net.WriteString(pnl.DragArmorID)
@@ -330,16 +320,10 @@ function Frame_Inventory()
                                 pnl.PendingDrop = true
                                 pnl:SetVisible(false) 
                                 
-                                local tSlots = GetArmorSlotNames(pnl.WepClass)
-                                for _, sName in ipairs(tSlots) do
-                                    if parent_panel.ArmorSlotPanels[sName] then
-                                        parent_panel.ArmorSlotPanels[sName].PendingEquip = pnl.WepClass
-                                    end
-                                end
-                                
                                 net.Start("KB_ClaimLoot")
                                     net.WriteEntity(pnl.BoxEnt)
                                     net.WriteUInt(pnl.SlotIndex, 8)
+                                    net.WriteUInt(0, 8)
                                 net.SendToServer()
                                 
                                 local parent_frame = pnl.BoxEnt:GetClass() == "prop_ragdoll" and playerinventory_frame or lootbox_frame
@@ -408,7 +392,6 @@ function Frame_Inventory()
                             end
 
                             if itemID and not s.PendingDrop then
-                                slotPanel.PendingEquip = nil 
                                 hasArmor = true
                                 printName = GetItemPrintName(itemInfo.ent)
                                 rarityColor = kb.GetItemRarityColor(itemInfo.ent)
@@ -417,17 +400,6 @@ function Frame_Inventory()
                                 if not s.ItemIcon or s.LastEnt ~= itemInfo.ent then
                                     s.ItemIcon = Material(customIconPath, "smooth")
                                     s.LastEnt = itemInfo.ent
-                                end
-                                iconMat = s.ItemIcon
-                            elseif slotPanel.PendingEquip then
-                                hasArmor = true
-                                printName = GetItemPrintName(slotPanel.PendingEquip)
-                                rarityColor = kb.GetItemRarityColor(slotPanel.PendingEquip)
-                                
-                                local customIconPath = custom_item_data[slotPanel.PendingEquip] and custom_item_data[slotPanel.PendingEquip].icon or ("entities/" .. slotPanel.PendingEquip .. ".png")
-                                if not s.ItemIcon or s.LastEnt ~= slotPanel.PendingEquip then
-                                    s.ItemIcon = Material(customIconPath, "smooth")
-                                    s.LastEnt = slotPanel.PendingEquip
                                 end
                                 iconMat = s.ItemIcon
                             end
@@ -485,8 +457,8 @@ function Frame_Inventory()
     invPanel.Think = function(self)
         local weps = LocalPlayer():GetWeapons()
         local count = 0
-        for _, w in ipairs(weps) do
-            if IsValid(w) and not weapon_blacklist[w:GetClass()] then
+        for _, wep in ipairs(weps) do
+            if IsValid(wep) and not weapon_blacklist[wep:GetClass()] then
                 count = count + 1
             end
         end
@@ -503,15 +475,14 @@ function Frame_Inventory()
         local has_backpack = HasBackpackEquipped()
         local max_slots = has_backpack and 14 or 8
 
-        local pending_claims = {}
-        local targeted_claims = {}
-
-        for _, slot in ipairs(self:GetChildren()) do
-            if slot.PendingClaim then
-                if slot.TargetSlotIndex then
-                    targeted_claims[slot.TargetSlotIndex] = slot.PendingClaim
-                else
-                    table.insert(pending_claims, slot.PendingClaim)
+        local ply = LocalPlayer()
+        local bp_weps = {}
+        if has_backpack and ply.EZarmor and ply.EZarmor.items then
+            for id, data in pairs(ply.EZarmor.items) do
+                local info = JMod.ArmorTable[data.name]
+                if info and info.slots and info.slots["back"] then
+                    bp_weps = data.KB_StoredWeapons or {}
+                    break
                 end
             end
         end
@@ -522,62 +493,72 @@ function Frame_Inventory()
         local current_classes = {}
         
         for _, wep in ipairs(weps) do
-            if IsValid(wep) and not weapon_blacklist[wep:GetClass()] then
-                current_classes[wep:GetClass()] = wep
+            local class = wep:GetClass()
+            if IsValid(wep) and not weapon_blacklist[class] and not wep.KB_PendingTransfer then
+                current_classes[class] = wep
             end
         end
 
-        -- Сбрасываем память лишних слотов, если рюкзак снят
-        for i = 1, 14 do
-            local stored_class = inventory_slot_memory[i]
-            if stored_class and not current_classes[stored_class] and targeted_claims[i] ~= stored_class then
-                inventory_slot_memory[i] = nil
-            end
-            if i > 8 and not has_backpack then
-                inventory_slot_memory[i] = nil
+        local memory_changed = false
+        
+        for i = 1, 8 do
+            local cls = inventory_slot_memory[i]
+            if cls then
+                local is_in_backpack = false
+                for b_idx = 9, 14 do
+                    if bp_weps[b_idx] and bp_weps[b_idx].class == cls then
+                        is_in_backpack = true
+                        break
+                    end
+                end
+
+                if not current_classes[cls] and not LocalPlayer():HasWeapon(cls) and not is_in_backpack then
+                    if not kb_expected_items[cls] then
+                        inventory_slot_memory[i] = nil
+                        memory_changed = true
+                    end
+                else
+                    kb_expected_items[cls] = nil
+                end
             end
         end
-
-        for slot_idx, class in pairs(targeted_claims) do
-            if slot_idx <= max_slots then
-                inventory_slot_memory[slot_idx] = class
-            end
+        
+        for i = 9, 14 do
+            inventory_slot_memory[i] = nil 
         end
 
         for class, wep in pairs(current_classes) do
             local is_stored = false
-            for i = 1, max_slots do
+            for i = 1, 8 do
                 if inventory_slot_memory[i] == class then
                     is_stored = true
                     break
                 end
             end
+
+            if not is_stored then
+                for i = 9, 14 do
+                    if bp_weps[i] and bp_weps[i].class == class then
+                        is_stored = true
+                        break
+                    end
+                end
+            end
             
             if not is_stored then
-                for i = 1, max_slots do
+                for i = 1, 8 do
                     if not inventory_slot_memory[i] then
                         inventory_slot_memory[i] = class
+                        memory_changed = true
                         break
                     end
                 end
             end
         end
-
-        local active_pending = {}
-        local real_classes = {}
         
-        for i = 1, max_slots do
-            if inventory_slot_memory[i] then
-                real_classes[inventory_slot_memory[i]] = true
-            end
+        if memory_changed then
+            SyncInventorySlotsToServer()
         end
-
-        for _, class in ipairs(pending_claims) do
-            if not real_classes[class] then
-                table.insert(active_pending, class)
-            end
-        end
-                
 
         for i = 1, max_slots do
             local slotPanel = vgui.Create("DPanel", self)
@@ -595,26 +576,20 @@ function Frame_Inventory()
                 slotPanel:SetPos(bpX, bpY)
             end
             
-            local wep_class = inventory_slot_memory[i]
-            local wep = wep_class and current_classes[wep_class] or nil
+            local is_bp_slot = i > 8
+            local wep_class = nil
+            local wep = nil
 
-            slotPanel.Think = function(s)
-                if s.PendingClaim and LocalPlayer():HasWeapon(s.PendingClaim) then
-                    s.PendingClaim = nil
-                    s.TargetSlotIndex = nil
-                    if IsValid(self) then
-                        self:Refresh()
-                    end
+            if not is_bp_slot then
+                wep_class = inventory_slot_memory[i]
+                wep = wep_class and current_classes[wep_class] or nil
+            else
+                local stored = bp_weps[i]
+                if stored then
+                    wep_class = stored.class
                 end
             end
 
-            if targeted_claims[i] then
-                slotPanel.PendingClaim = targeted_claims[i]
-                slotPanel.TargetSlotIndex = i
-            elseif not IsValid(wep) and #active_pending > 0 then
-                slotPanel.PendingClaim = table.remove(active_pending, 1)
-            end
-            
             slotPanel.Paint = function(s, w, h)
                 draw.RoundedBox(0, 0, 0, w, h, Color(39, 39, 39))
                 surface.SetDrawColor(73, 73, 73)
@@ -627,26 +602,6 @@ function Frame_Inventory()
                 if s:IsHovered() then
                     draw.RoundedBox(0, 0, 0, w, h, Color(255, 255, 255, 2))
                 end
-
-                if s.PendingClaim then
-                    local class = s.PendingClaim
-                    local rarityColor = kb.GetItemRarityColor(class)
-                    
-                    surface.SetDrawColor(rarityColor.r, rarityColor.g, rarityColor.b, 50)
-                    surface.SetMaterial(gradient_down)
-                    surface.DrawTexturedRect(0, 0, w, h)
-
-                    local wepData = weapons.GetStored(class)
-                    
-                    DrawItemIcon(s, class, wepData, w, h)
-                    
-                    local printName = GetItemPrintName(class, wepData)
-                    
-                    draw.SimpleText(printName, "DermaDefault", w / 2, h - 6, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_BOTTOM)
-                    
-                    surface.SetDrawColor(rarityColor.r, rarityColor.g, rarityColor.b, 50)
-                    surface.DrawRect(0, h - 3, w, 3)
-                end
             end
 
             slotPanel:Receiver("KB_Item", function(self_pnl, panels, isDropped, index_drop, x, y)
@@ -657,7 +612,9 @@ function Frame_Inventory()
 
                     if IsValid(draggedBtn) and draggedBtn.IsLootboxItem then
                         if not LocalPlayer():HasWeapon(draggedBtn.WepClass) then
-                            draggedBtn.TargetSlotIndex = i
+                            if i <= 8 then
+                                draggedBtn.TargetSlotIndex = i
+                            end
                         end
                         draggedBtn:DoClick()
                         return
@@ -670,34 +627,76 @@ function Frame_Inventory()
 
                     if fromIndex ~= toIndex then
                         local draggedClass = draggedBtn.WepClass
-                        local targetClass = inventory_slot_memory[toIndex]
+                        
+                        local cur_bp_weps = {}
+                        if ply.EZarmor and ply.EZarmor.items then
+                            for id, data in pairs(ply.EZarmor.items) do
+                                local info = JMod.ArmorTable[data.name]
+                                if info and info.slots and info.slots["back"] then
+                                    cur_bp_weps = data.KB_StoredWeapons
+                                    if not cur_bp_weps then
+                                        cur_bp_weps = {}
+                                        data.KB_StoredWeapons = cur_bp_weps
+                                    end
+                                    break
+                                end
+                            end
+                        end
+
+                        local targetClass = nil
+                        if toIndex <= 8 then
+                            targetClass = inventory_slot_memory[toIndex]
+                        else
+                            targetClass = cur_bp_weps[toIndex] and cur_bp_weps[toIndex].class
+                        end
 
                         local _, put_snd = kb.GetSoundClaimOrPut(draggedClass)
                         surface.PlaySound(put_snd)
 
-                        draggedBtn:SetVisible(false)
-
-                        for _, child in ipairs(self_pnl:GetChildren()) do
-                            if child:GetName() == "DButton" then
-                                child:SetVisible(false)
-                            end
+                        if fromIndex <= 8 and toIndex <= 8 then
+                            kb_expected_items[draggedClass] = true
+                            if targetClass then kb_expected_items[targetClass] = true end
+                            inventory_slot_memory[toIndex] = draggedClass
+                            inventory_slot_memory[fromIndex] = targetClass
+                            SyncInventorySlotsToServer()
+                            
+                        elseif fromIndex <= 8 and toIndex > 8 then
+                            kb_expected_items[draggedClass] = true
+                            if targetClass then kb_expected_items[targetClass] = true end
+                            inventory_slot_memory[fromIndex] = targetClass
+                            cur_bp_weps[toIndex] = {class = draggedClass}
+                            SyncInventorySlotsToServer()
+                            
+                            net.Start("KB_MoveToBackpack")
+                            net.WriteString(draggedClass)
+                            net.WriteUInt(toIndex, 8)
+                            net.SendToServer()
+                            
+                        elseif fromIndex > 8 and toIndex <= 8 then
+                            kb_expected_items[draggedClass] = true
+                            if targetClass then kb_expected_items[targetClass] = true end
+                            cur_bp_weps[fromIndex] = targetClass and {class = targetClass} or nil
+                            inventory_slot_memory[toIndex] = draggedClass
+                            SyncInventorySlotsToServer()
+                            
+                            net.Start("KB_MoveFromBackpack")
+                            net.WriteUInt(fromIndex, 8)
+                            net.WriteUInt(toIndex, 8)
+                            net.SendToServer()
+                            
+                        elseif fromIndex > 8 and toIndex > 8 then
+                            kb_expected_items[draggedClass] = true
+                            if targetClass then kb_expected_items[targetClass] = true end
+                            cur_bp_weps[toIndex] = {class = draggedClass}
+                            cur_bp_weps[fromIndex] = targetClass and {class = targetClass} or nil
+                            
+                            net.Start("KB_SwapInBackpack")
+                            net.WriteUInt(fromIndex, 8)
+                            net.WriteUInt(toIndex, 8)
+                            net.SendToServer()
                         end
-
-                        inventory_slot_memory[toIndex] = inventory_slot_memory[fromIndex]
-                        inventory_slot_memory[fromIndex] = targetClass
-
-                        SyncInventorySlotsToServer()
                         
-                        self_pnl.PendingClaim = draggedClass
-                        
-                        local fromPanel = invPanel:GetChild(fromIndex - 1)
-                        if IsValid(fromPanel) then
-                            fromPanel.PendingClaim = targetClass
-                        end
-                        
-                        timer.Simple(0, function()
-                            if IsValid(invPanel) then invPanel:Refresh() end
-                        end)
+                        if IsValid(invPanel) then invPanel:Refresh() end
                     else
                         local _, put_snd = kb.GetSoundClaimOrPut(draggedBtn.WepClass)
                         surface.PlaySound(put_snd)
@@ -705,13 +704,13 @@ function Frame_Inventory()
                 end
             end)
 
-            if IsValid(wep) then
+            if wep_class then
                 local btn = vgui.Create("DButton", slotPanel)
                 btn:SetSize(slotSize, slotSize)
                 btn:SetText("")
                 btn.SlotIndex = i
                 
-                local class = wep:GetClass()
+                local class = wep_class
                 local wepData = weapons.GetStored(class)
                 local printName = GetItemPrintName(class, wepData)
                 local rarityColor = kb.GetItemRarityColor(class)
@@ -744,7 +743,7 @@ function Frame_Inventory()
                     surface.SetMaterial(gradient_down)
                     surface.DrawTexturedRect(0, 0, w, h)
 
-                    DrawItemIcon(s, class, wep, w, h)
+                    DrawItemIcon(s, class, wep or wepData, w, h)
                     
                     draw.SimpleText(printName, "DermaDefault", w / 2, h - 6, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_BOTTOM)
                     
@@ -758,6 +757,8 @@ function Frame_Inventory()
                     local id = GetBtnID(s)
                     if kb_transfer_states[id] and kb_transfer_states[id].start then
                         local progress = math.Clamp((CurTime() - kb_transfer_states[id].start) / 0.7, 0, 1)
+                        draw.RoundedBox(0,0,0,w,h,Color(0, 0, 0, 150))
+                        draw.CircleProcessing(w / 2, h / 2, w * 0.3, 1, Color(0, 0, 0, 150))
                         draw.CircleProcessing(w / 2, h / 2, w * 0.3, progress, color_white)
                     end
                 end
@@ -790,48 +791,30 @@ function Frame_Inventory()
                 end
                 
                 btn.ExecuteTransfer = function(self)
+                    if is_bp_slot then return end
+
                     local id = GetBtnID(self)
                     kb_transfer_states[id] = nil
 
-                    local active_frame
-                    if IsValid(lootbox_frame) and not lootbox_frame.isClosing then
-                        active_frame = lootbox_frame
-                    elseif IsValid(playerinventory_frame) and not playerinventory_frame.isClosing then
-                        active_frame = playerinventory_frame
-                    end
-                    
-                    if not active_frame or not IsValid(active_frame.ContainerEnt) then 
-                        return 
-                    end
+                    local active_frame = IsValid(lootbox_frame) and not lootbox_frame.isClosing and lootbox_frame or (IsValid(playerinventory_frame) and not playerinventory_frame.isClosing and playerinventory_frame)
+                    if not active_frame or not IsValid(active_frame.ContainerEnt) then return end
                     
                     local target_slot
-                    active_frame.ReservedTargetSlots = active_frame.ReservedTargetSlots or {}
-
                     for _, slotPnl in ipairs(active_frame.Scroll:GetCanvas():GetChildren()) do
-                        local idx = slotPnl.SlotIndex
-                        
-                        if active_frame.ReservedTargetSlots[idx] and CurTime() > active_frame.ReservedTargetSlots[idx] then
-                            active_frame.ReservedTargetSlots[idx] = nil
-                        end
-
-                        if not slotPnl.PendingPut and not active_frame.ReservedTargetSlots[idx] then
-                            local is_empty = true
-                            for _, child in ipairs(slotPnl:GetChildren()) do
-                                if child:GetName() == "DButton" and child:IsVisible() then
-                                    is_empty = false
-                                    break
-                                end
-                            end
-                            if is_empty then
-                                target_slot = slotPnl
+                        local is_empty = true
+                        for _, child in ipairs(slotPnl:GetChildren()) do
+                            if child:GetName() == "DButton" and child:IsVisible() then
+                                is_empty = false
                                 break
                             end
+                        end
+                        if is_empty then
+                            target_slot = slotPnl
+                            break
                         end
                     end
 
                     if target_slot then
-                        active_frame.ReservedTargetSlots[target_slot.SlotIndex] = CurTime() + 1
-
                         local _, put_snd = kb.GetSoundClaimOrPut(self.WepClass)
                         surface.PlaySound(put_snd)
                         
@@ -840,24 +823,24 @@ function Frame_Inventory()
                             net.WriteUInt(target_slot.SlotIndex, 8) 
                             net.WriteString(self.WepClass)
                         net.SendToServer()
+
+                        local local_wep = LocalPlayer():GetWeapon(self.WepClass)
+                        if IsValid(local_wep) then local_wep.KB_PendingTransfer = true end
                         
-                        self:SetVisible(false)
-                        target_slot.PendingPut = self.WepClass
-                        
-                        timer.Simple(0.1, function()
-                            if IsValid(target_slot) and target_slot.PendingPut == self.WepClass then
-                                target_slot.PendingPut = nil
-                            end
-                            if IsValid(self) then
-                                self:SetVisible(true)
-                            end
-                        end)
+                        inventory_slot_memory[self.SlotIndex] = nil
+                        SyncInventorySlotsToServer()
+
+                        self:SetParent(target_slot)
+                        self:SetPos(0, 0)
+                        self.IsLootboxItem = true
+                        self.BoxEnt = active_frame.ContainerEnt
+                        self.SlotIndex = target_slot.SlotIndex
+
+                        if IsValid(invPanel) then invPanel:Refresh() end
                     end
                 end
             end
         end
-
-        SyncInventorySlotsToServer()
     end
 
     invPanel:Refresh()
@@ -953,15 +936,26 @@ function Frame_Inventory()
                             end
                         end
                     else
+                        if pnl.SlotIndex and pnl.SlotIndex > 8 then
+                            ClearLocalBackpackSlot(pnl.SlotIndex)
+                            net.Start("KB_MoveFromBackpack")
+                            net.WriteUInt(pnl.SlotIndex, 8)
+                            net.WriteUInt(pnl.SlotIndex, 8)
+                            net.SendToServer()
+                        end
+                        if pnl.SlotIndex and pnl.SlotIndex <= 8 then
+                            inventory_slot_memory[pnl.SlotIndex] = nil
+                            SyncInventorySlotsToServer()
+                        end
+
+                        local local_wep = LocalPlayer():GetWeapon(pnl.WepClass)
+                        if IsValid(local_wep) then local_wep.KB_PendingTransfer = true end
+
                         net.Start("KB_DropWeapon_Action")
                         net.WriteString(pnl.WepClass)
                         net.SendToServer()
-                         
-                        pnl:SetVisible(false) 
                         
-                        timer.Simple(0.1, function()
-                            if IsValid(invPanel) then invPanel:Refresh() end
-                        end)
+                        if IsValid(invPanel) then invPanel:Refresh() end
                     end
                 end
             end
@@ -1184,25 +1178,6 @@ net.Receive("KB_OpenLootBox", function()
             if self:IsHovered() then
                 draw.RoundedBox(0, 0, 0, w, h, Color(255, 255, 255, 2))
             end
-
-            if self.PendingPut then
-                local rarityColor = kb.GetItemRarityColor(self.PendingPut)
-                
-                surface.SetDrawColor(rarityColor.r, rarityColor.g, rarityColor.b, 50)
-                surface.SetMaterial(gradient_down)
-                surface.DrawTexturedRect(0, 0, w, h)
-
-                local wep = weapons.GetStored(self.PendingPut)
-                
-                DrawItemIcon(self, self.PendingPut, wep, w, h)
-                
-                local printName = GetItemPrintName(self.PendingPut, wep)
-                
-                draw.SimpleText(printName, "DermaDefault", w / 2, h - 6, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_BOTTOM)
-                
-                surface.SetDrawColor(rarityColor.r, rarityColor.g, rarityColor.b, 50)
-                surface.DrawRect(0, h - 3, w, 3)
-            end
         end
 
         local function SetupReceiver()
@@ -1257,7 +1232,7 @@ net.Receive("KB_OpenLootBox", function()
                             end
                         end
 
-                        if not is_empty or self_pnl.PendingPut then return end
+                        if not is_empty then return end
 
                         net.Start("KB_PutArmorItem")
                             net.WriteEntity(box_ent)
@@ -1273,12 +1248,7 @@ net.Receive("KB_OpenLootBox", function()
                         surface.PlaySound(put_snd)
                         
                         pnl.PendingDrop = true
-                        self_pnl.PendingPut = pnl.ArmorEntClass
-                        
                         timer.Simple(0.5, function()
-                            if IsValid(self_pnl) and self_pnl.PendingPut == pnl.ArmorEntClass then
-                                self_pnl.PendingPut = nil
-                            end
                             if IsValid(pnl) then
                                 pnl.PendingDrop = false
                             end
@@ -1289,34 +1259,43 @@ net.Receive("KB_OpenLootBox", function()
                     if pnl.WepClass then
                         local is_empty = true
                         for _, child in ipairs(self_pnl:GetChildren()) do
-                            if child:GetName() == "DButton" and child:IsVisible() then
-                                is_empty = false
-                                break
-                            end
+                            if child:GetName() == "DButton" and child:IsVisible() then is_empty = false break end
+                        end
+                        if not is_empty then return end
+
+                        if pnl.SlotIndex and pnl.SlotIndex > 8 then
+                            ClearLocalBackpackSlot(pnl.SlotIndex)
+                            net.Start("KB_MoveFromBackpack")
+                            net.WriteUInt(pnl.SlotIndex, 8)
+                            net.WriteUInt(pnl.SlotIndex, 8)
+                            net.SendToServer()
+                        elseif pnl.SlotIndex and pnl.SlotIndex <= 8 then
+                            inventory_slot_memory[pnl.SlotIndex] = nil
                         end
 
-                        if not is_empty or self_pnl.PendingPut then return end
+                        SyncInventorySlotsToServer()
 
                         net.Start("KB_PutItem")
                             net.WriteEntity(box_ent)
                             net.WriteUInt(self_pnl.SlotIndex, 8) 
                             net.WriteString(pnl.WepClass)
                         net.SendToServer()
+
+                        local local_wep = LocalPlayer():GetWeapon(pnl.WepClass)
+                        if IsValid(local_wep) then local_wep.KB_PendingTransfer = true end
+                        
+                        pnl:SetParent(self_pnl)
+                        pnl:SetPos(0, 0)
+                        pnl.IsLootboxItem = true
+                        pnl.BoxEnt = box_ent
+                        pnl.SlotIndex = self_pnl.SlotIndex
                         
                         local _, put_snd = kb.GetSoundClaimOrPut(pnl.WepClass)
                         surface.PlaySound(put_snd)
                         
-                        pnl:SetVisible(false)
-                        self_pnl.PendingPut = pnl.WepClass
-                        
-                        timer.Simple(0.5, function()
-                            if IsValid(self_pnl) and self_pnl.PendingPut == pnl.WepClass then
-                                self_pnl.PendingPut = nil
-                            end
-                            if IsValid(pnl) then
-                                pnl:SetVisible(true)
-                            end
-                        end)
+                        if IsValid(main_inventory) and IsValid(main_inventory.invPanel) then
+                            main_inventory.invPanel:Refresh()
+                        end
                     end
                 end
             end)
@@ -1398,6 +1377,8 @@ net.Receive("KB_OpenLootBox", function()
                 local id = GetBtnID(self)
                 if kb_transfer_states[id] and kb_transfer_states[id].start then
                     local progress = math.Clamp((CurTime() - kb_transfer_states[id].start) / 0.7, 0, 1)
+                    draw.RoundedBox(0,0,0,w,h,Color(0, 0, 0, 150))
+                    draw.CircleProcessing(w / 2, h / 2, w * 0.3, 1, Color(0, 0, 0, 150))
                     draw.CircleProcessing(w / 2, h / 2, w * 0.3, progress, color_white)
                 end
             end
@@ -1407,7 +1388,6 @@ net.Receive("KB_OpenLootBox", function()
                 kb_transfer_states[id] = kb_transfer_states[id] or {}
                 if kb_transfer_states[id].start then return end
                 kb_transfer_states[id].start = CurTime()
-
                 surface.PlaySound("physics/rock_impact_soft" .. math.random(1, 3) .. ".wav")
             end
             
@@ -1421,17 +1401,14 @@ net.Receive("KB_OpenLootBox", function()
                 net.Start("KB_ClaimLoot")
                     net.WriteEntity(box_ent)
                     net.WriteUInt(self.SlotIndex, 8) 
+                    net.WriteUInt(self.TargetSlotIndex or 0, 8)
                 net.SendToServer()
-
-                if not string.StartWith(item.class, "ent_jack_gmod_ezarmor") and not LocalPlayer():HasWeapon(item.class) then
+                
+                if self.TargetSlotIndex and self.TargetSlotIndex > 0 then
+                    kb_expected_items[self.WepClass] = true
+                    inventory_slot_memory[self.TargetSlotIndex] = self.WepClass
+                    SyncInventorySlotsToServer()
                     if IsValid(main_inventory) and IsValid(main_inventory.invPanel) then
-                        local dummy = vgui.Create("Panel", main_inventory.invPanel) 
-                        dummy.PendingClaim = item.class
-                        
-                        if self.TargetSlotIndex then
-                            dummy.TargetSlotIndex = self.TargetSlotIndex
-                        end
-                        
                         main_inventory.invPanel:Refresh()
                     end
                 end
@@ -1657,13 +1634,6 @@ net.Receive("KB_OpenPlayerInventory", function()
                                     surface.PlaySound(put_snd)
                                     pnl.PendingDrop = true
                                     
-                                    local tSlots = GetArmorSlotNames(pnl.ArmorEntClass)
-                                    for _, sName in ipairs(tSlots) do
-                                        if parent_panel.ArmorSlotPanels[sName] then
-                                            parent_panel.ArmorSlotPanels[sName].PendingEquip = pnl.ArmorEntClass
-                                        end
-                                    end
-                                    
                                     net.Start("KB_TransferArmorToTarget")
                                     net.WriteEntity(target_ply) 
                                     net.WriteString(pnl.DragArmorID)
@@ -1676,16 +1646,10 @@ net.Receive("KB_OpenPlayerInventory", function()
                                     pnl.PendingDrop = true
                                     pnl:SetVisible(false) 
                                     
-                                    local tSlots = GetArmorSlotNames(pnl.WepClass)
-                                    for _, sName in ipairs(tSlots) do
-                                        if parent_panel.ArmorSlotPanels[sName] then
-                                            parent_panel.ArmorSlotPanels[sName].PendingEquip = pnl.WepClass
-                                        end
-                                    end
-                                    
                                     net.Start("KB_ClaimLoot")
                                         net.WriteEntity(pnl.BoxEnt)
                                         net.WriteUInt(pnl.SlotIndex, 8)
+                                        net.WriteUInt(0, 8)
                                     net.SendToServer()
                                     
                                     local parent_frame = pnl.BoxEnt:GetClass() == "prop_ragdoll" and playerinventory_frame or lootbox_frame
@@ -1756,7 +1720,6 @@ net.Receive("KB_OpenPlayerInventory", function()
                                 end
 
                                 if itemID and not s.PendingDrop then
-                                    slotPanel.PendingEquip = nil
                                     hasArmor = true
                                     printName = itemData.name
                                     rarityColor = kb.GetItemRarityColor(itemInfo.ent)
@@ -1765,17 +1728,6 @@ net.Receive("KB_OpenPlayerInventory", function()
                                     if not s.ItemIcon or s.LastEnt ~= itemInfo.ent then
                                         s.ItemIcon = Material(customIconPath, "smooth")
                                         s.LastEnt = itemInfo.ent
-                                    end
-                                    iconMat = s.ItemIcon
-                                elseif slotPanel.PendingEquip then
-                                    hasArmor = true
-                                    printName = GetItemPrintName(slotPanel.PendingEquip)
-                                    rarityColor = kb.GetItemRarityColor(slotPanel.PendingEquip)
-                                    
-                                    local customIconPath = custom_item_data[slotPanel.PendingEquip] and custom_item_data[slotPanel.PendingEquip].icon or ("entities/" .. slotPanel.PendingEquip .. ".png")
-                                    if not s.ItemIcon or s.LastEnt ~= slotPanel.PendingEquip then
-                                        s.ItemIcon = Material(customIconPath, "smooth")
-                                        s.LastEnt = slotPanel.PendingEquip
                                     end
                                     iconMat = s.ItemIcon
                                 end
@@ -1804,14 +1756,30 @@ net.Receive("KB_OpenPlayerInventory", function()
                             end
 
                             local id = GetBtnID(s)
-                            if kb_transfer_states[id] and kb_transfer_states[id].start then
+                            if hasArmor and kb_transfer_states[id] and kb_transfer_states[id].start then
                                 local progress = math.Clamp((CurTime() - kb_transfer_states[id].start) / 0.7, 0, 1)
+                                draw.RoundedBox(0,0,0,w,h,Color(0, 0, 0, 150))
+                                draw.CircleProcessing(w / 2, h / 2, w * 0.3, 1, Color(0, 0, 0, 150))
                                 draw.CircleProcessing(w / 2, h / 2, w * 0.3, progress, color_white)
                             end
                         end
                         
                         btn.Think = function(self)
                             local id = GetBtnID(self)
+                            
+                            if self:IsHovered() and (input.IsKeyDown(KEY_LSHIFT) or input.IsKeyDown(KEY_RSHIFT)) and input.IsMouseDown(MOUSE_LEFT) then
+                                if IsValid(target_ply) and target_ply.EZarmor then
+                                    local itemID = JMod.GetItemInSlot(target_ply.EZarmor, slotName)
+                                    if itemID then
+                                        if not kb_transfer_states[id] or not kb_transfer_states[id].swiped then
+                                            kb_transfer_states[id] = kb_transfer_states[id] or {}
+                                            kb_transfer_states[id].swiped = true
+                                            self:DoClick()
+                                        end
+                                    end
+                                end
+                            end
+
                             if kb_transfer_states[id] and kb_transfer_states[id].start then
                                 if CurTime() - kb_transfer_states[id].start >= 0.7 then
                                     kb_transfer_states[id].start = nil
@@ -1945,25 +1913,6 @@ net.Receive("KB_OpenPlayerInventory", function()
             if self:IsHovered() then
                 draw.RoundedBox(0, 0, 0, w, h, Color(255, 255, 255, 2))
             end
-
-            if self.PendingPut then
-                local rarityColor = kb.GetItemRarityColor(self.PendingPut)
-                
-                surface.SetDrawColor(rarityColor.r, rarityColor.g, rarityColor.b, 50)
-                surface.SetMaterial(gradient_down)
-                surface.DrawTexturedRect(0, 0, w, h)
-
-                local wep = weapons.GetStored(self.PendingPut)
-                
-                DrawItemIcon(self, self.PendingPut, wep, w, h)
-                
-                local printName = GetItemPrintName(self.PendingPut, wep)
-                
-                draw.SimpleText(printName, "DermaDefault", w / 2, h - 6, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_BOTTOM)
-                
-                surface.SetDrawColor(rarityColor.r, rarityColor.g, rarityColor.b, 50)
-                surface.DrawRect(0, h - 3, w, 3)
-            end
         end
 
         local function SetupReceiver()
@@ -2018,7 +1967,7 @@ net.Receive("KB_OpenPlayerInventory", function()
                             end
                         end
 
-                        if not is_empty or self_pnl.PendingPut then return end
+                        if not is_empty then return end
 
                         net.Start("KB_PutArmorItem")
                             net.WriteEntity(player_ent)
@@ -2034,12 +1983,7 @@ net.Receive("KB_OpenPlayerInventory", function()
                         surface.PlaySound(put_snd)
                         
                         pnl.PendingDrop = true
-                        self_pnl.PendingPut = pnl.ArmorEntClass
-                        
                         timer.Simple(0.5, function()
-                            if IsValid(self_pnl) and self_pnl.PendingPut == pnl.ArmorEntClass then
-                                self_pnl.PendingPut = nil
-                            end
                             if IsValid(pnl) then
                                 pnl.PendingDrop = false
                             end
@@ -2056,7 +2000,19 @@ net.Receive("KB_OpenPlayerInventory", function()
                             end
                         end
 
-                        if not is_empty or self_pnl.PendingPut then return end
+                        if not is_empty then return end
+
+                        if pnl.SlotIndex and pnl.SlotIndex > 8 then
+                            ClearLocalBackpackSlot(pnl.SlotIndex)
+                            net.Start("KB_MoveFromBackpack")
+                            net.WriteUInt(pnl.SlotIndex, 8)
+                            net.WriteUInt(pnl.SlotIndex, 8)
+                            net.SendToServer()
+                        elseif pnl.SlotIndex and pnl.SlotIndex <= 8 then
+                            inventory_slot_memory[pnl.SlotIndex] = nil 
+                        end
+
+                        SyncInventorySlotsToServer()
 
                         net.Start("KB_PutItem")
                             net.WriteEntity(player_ent)
@@ -2064,20 +2020,18 @@ net.Receive("KB_OpenPlayerInventory", function()
                             net.WriteString(pnl.WepClass)
                         net.SendToServer()
                         
+                        pnl:SetParent(self_pnl)
+                        pnl:SetPos(0, 0)
+                        pnl.IsLootboxItem = true
+                        pnl.BoxEnt = player_ent
+                        pnl.SlotIndex = self_pnl.SlotIndex
+                        
                         local _, put_snd = kb.GetSoundClaimOrPut(pnl.WepClass)
                         surface.PlaySound(put_snd)
                         
-                        pnl:SetVisible(false)
-                        self_pnl.PendingPut = pnl.WepClass
-                        
-                        timer.Simple(0.1, function()
-                            if IsValid(self_pnl) and self_pnl.PendingPut == pnl.WepClass then
-                                self_pnl.PendingPut = nil
-                            end
-                            if IsValid(pnl) then
-                                pnl:SetVisible(true)
-                            end
-                        end)
+                        if IsValid(main_inventory) and IsValid(main_inventory.invPanel) then
+                            main_inventory.invPanel:Refresh()
+                        end
                     end
                 end
             end)
@@ -2158,6 +2112,8 @@ net.Receive("KB_OpenPlayerInventory", function()
                 local id = GetBtnID(self)
                 if kb_transfer_states[id] and kb_transfer_states[id].start then
                     local progress = math.Clamp((CurTime() - kb_transfer_states[id].start) / 0.7, 0, 1)
+                    draw.RoundedBox(0,0,0,w,h,Color(0, 0, 0, 150))
+                    draw.CircleProcessing(w / 2, h / 2, w * 0.3, 1, Color(0, 0, 0, 150))
                     draw.CircleProcessing(w / 2, h / 2, w * 0.3, progress, color_white)
                 end
             end
@@ -2167,38 +2123,32 @@ net.Receive("KB_OpenPlayerInventory", function()
                 kb_transfer_states[id] = kb_transfer_states[id] or {}
                 if kb_transfer_states[id].start then return end
                 kb_transfer_states[id].start = CurTime()
-
                 surface.PlaySound("physics/rock_impact_soft" .. math.random(1, 3) .. ".wav")
             end
             
             btn.ExecuteTransfer = function(self)
                 local id = GetBtnID(self)
                 kb_transfer_states[id] = nil
-
+                
                 local claim_snd = kb.GetSoundClaimOrPut(self.WepClass)
                 surface.PlaySound(claim_snd)
 
                 net.Start("KB_ClaimLoot")
                     net.WriteEntity(player_ent)
                     net.WriteUInt(self.SlotIndex, 8) 
+                    net.WriteUInt(self.TargetSlotIndex or 0, 8)
                 net.SendToServer()
 
-                if not string.StartWith(item.class, "ent_jack_gmod_ezarmor") and not LocalPlayer():HasWeapon(item.class) then
+                if self.TargetSlotIndex and self.TargetSlotIndex > 0 then
+                    inventory_slot_memory[self.TargetSlotIndex] = self.WepClass
+                    SyncInventorySlotsToServer()
                     if IsValid(main_inventory) and IsValid(main_inventory.invPanel) then
-                        local dummy = vgui.Create("Panel", main_inventory.invPanel) 
-                        dummy.PendingClaim = item.class
-                        
-                        if self.TargetSlotIndex then
-                            dummy.TargetSlotIndex = self.TargetSlotIndex
-                        end
-                        
                         main_inventory.invPanel:Refresh()
                     end
                 end
 
                 if string.StartWith(item.class, "ent_jack_gmod_ezarmor") or not LocalPlayer():HasWeapon(item.class) then
                     self:Remove()
-                    
                     playerinventory_frame.RemainingItems = playerinventory_frame.RemainingItems - 1
                 end
             end

@@ -16,6 +16,10 @@ util.AddNetworkString("KB_TransferArmorToLocal")
 util.AddNetworkString("KB_TransferArmorToTarget")
 util.AddNetworkString("KB_DropTargetArmor")
 
+util.AddNetworkString("KB_MoveToBackpack")
+util.AddNetworkString("KB_MoveFromBackpack")
+util.AddNetworkString("KB_SwapInBackpack")
+
 net.Receive("KB_SyncInventorySlots", function(len, ply)
     if not IsValid(ply) then return end
     ply.InventorySlotMemory = net.ReadTable()
@@ -52,6 +56,9 @@ local function SafeRemoveArmor(ent, armorID)
         if Info.chrg then dropped.ArmorCharges = table.FullCopy(Info.chrg) end
         dropped.EZID = armorID
         dropped:SetColor(Info.col)
+
+        if Info.KB_StoredWeapons then dropped.KB_StoredWeapons = table.FullCopy(Info.KB_StoredWeapons) end
+        
         dropped:Spawn()
         dropped:Activate()
         
@@ -75,11 +82,130 @@ local function SafeEquipArmor(ent, dropped_ent)
             col = dropped_ent:GetColor(),
             chrg = dropped_ent.ArmorCharges,
             id = NewArmorID,
-            tgl = false
+            tgl = false,
+            KB_StoredWeapons = table.FullCopy(dropped_ent.KB_StoredWeapons or {})
         }
         dropped_ent:Remove()
     end
 end
+
+net.Receive("KB_MoveToBackpack", function(len, ply)
+    local wepClass = net.ReadString()
+    local slotTo = net.ReadUInt(8)
+    
+    if not ply.EZarmor or not ply.EZarmor.items then return end
+    
+    local bp_id = nil
+    for id, data in pairs(ply.EZarmor.items) do
+        local info = JMod.ArmorTable[data.name]
+        if info and info.slots and info.slots["back"] then
+            bp_id = id
+            break
+        end
+    end
+    
+    if not bp_id then return end
+    
+    if ply:HasWeapon(wepClass) then
+        local wep = ply:GetWeapon(wepClass)
+        local clip1 = IsValid(wep) and wep:Clip1() or 0
+        local clip2 = IsValid(wep) and wep:Clip2() or 0
+        
+        ply:StripWeapon(wepClass)
+        
+        local bp_item = ply.EZarmor.items[bp_id]
+        bp_item.KB_StoredWeapons = bp_item.KB_StoredWeapons or {}
+        bp_item.KB_StoredWeapons[slotTo] = {
+            class = wepClass,
+            clip1 = clip1,
+            clip2 = clip2
+        }
+        
+        if ply.InventorySlotMemory then
+            for k, v in pairs(ply.InventorySlotMemory) do
+                if v == wepClass and k <= 8 then
+                    ply.InventorySlotMemory[k] = nil
+                end
+            end
+            net.Start("KB_SyncInventorySlots")
+            net.WriteTable(ply.InventorySlotMemory)
+            net.Send(ply)
+        end
+
+        JMod.EZarmorSync(ply)
+    end
+end)
+
+net.Receive("KB_MoveFromBackpack", function(len, ply)
+    local slotFrom = net.ReadUInt(8)
+    local slotTo = net.ReadUInt(8)
+    
+    if not ply.EZarmor or not ply.EZarmor.items then return end
+    
+    local bp_id = nil
+    for id, data in pairs(ply.EZarmor.items) do
+        local info = JMod.ArmorTable[data.name]
+        if info and info.slots and info.slots["back"] then
+            bp_id = id
+            break
+        end
+    end
+    
+    if not bp_id then return end
+    
+    local bp_item = ply.EZarmor.items[bp_id]
+    if bp_item.KB_StoredWeapons and bp_item.KB_StoredWeapons[slotFrom] then
+        local stored_wep = bp_item.KB_StoredWeapons[slotFrom]
+        
+        local targetClass = ply.InventorySlotMemory and ply.InventorySlotMemory[slotTo]
+        
+        if targetClass and targetClass ~= stored_wep.class and ply:HasWeapon(targetClass) then
+            local oldWep = ply:GetWeapon(targetClass)
+            local c1 = IsValid(oldWep) and oldWep:Clip1() or 0
+            local c2 = IsValid(oldWep) and oldWep:Clip2() or 0
+            ply:StripWeapon(targetClass)
+            bp_item.KB_StoredWeapons[slotFrom] = { class = targetClass, clip1 = c1, clip2 = c2 }
+        else
+            bp_item.KB_StoredWeapons[slotFrom] = nil
+        end
+        
+        if not ply:HasWeapon(stored_wep.class) then
+            local wep = ply:Give(stored_wep.class, true)
+            if IsValid(wep) then
+                wep:SetClip1(stored_wep.clip1 or 0)
+                wep:SetClip2(stored_wep.clip2 or 0)
+            end
+        end
+        
+        ply.InventorySlotMemory = ply.InventorySlotMemory or {}
+        ply.InventorySlotMemory[slotTo] = stored_wep.class
+        
+        net.Start("KB_SyncInventorySlots")
+        net.WriteTable(ply.InventorySlotMemory)
+        net.Send(ply)
+        
+        JMod.EZarmorSync(ply)
+    end
+end)
+
+net.Receive("KB_SwapInBackpack", function(len, ply)
+    local slotFrom = net.ReadUInt(8)
+    local slotTo = net.ReadUInt(8)
+    if not ply.EZarmor or not ply.EZarmor.items then return end
+    local bp_id = nil
+    for id, data in pairs(ply.EZarmor.items) do
+        local info = JMod.ArmorTable[data.name]
+        if info and info.slots and info.slots["back"] then bp_id = id break end
+    end
+    if not bp_id then return end
+    
+    local bp_item = ply.EZarmor.items[bp_id]
+    bp_item.KB_StoredWeapons = bp_item.KB_StoredWeapons or {}
+    local temp = bp_item.KB_StoredWeapons[slotFrom]
+    bp_item.KB_StoredWeapons[slotFrom] = bp_item.KB_StoredWeapons[slotTo]
+    bp_item.KB_StoredWeapons[slotTo] = temp
+    JMod.EZarmorSync(ply)
+end)
 
 hook.Add("PlayerButtonDown", "Check_inventory_players123", function(ply, btn)
     if btn == KEY_E then
@@ -157,6 +283,7 @@ end)
 net.Receive("KB_ClaimLoot", function(len, ply)
     local box_ent = net.ReadEntity()
     local item_index = net.ReadUInt(8)
+    local target_slot = net.ReadUInt(8) or 0
 
     if not IsValid(ply) or not ply:IsPlayer() then return end
     if not IsValid(box_ent) then return end
@@ -175,6 +302,10 @@ net.Receive("KB_ClaimLoot", function(len, ply)
             local armor_ent = ents.Create(item.class)
             if IsValid(armor_ent) then
                 armor_ent:SetPos(ply:GetPos())
+
+                if item.KB_StoredWeapons then
+                    armor_ent.KB_StoredWeapons = table.FullCopy(item.KB_StoredWeapons)
+                end
                 armor_ent:Spawn()
                 armor_ent:Activate()
                 
@@ -214,6 +345,14 @@ net.Receive("KB_ClaimLoot", function(len, ply)
         else
             local wep = ply:Give(item.class, item.ammo_taken or false)
             item.claimed = true
+
+            if target_slot > 0 and target_slot <= 8 then
+                ply.InventorySlotMemory = ply.InventorySlotMemory or {}
+                ply.InventorySlotMemory[target_slot] = item.class
+                net.Start("KB_SyncInventorySlots")
+                net.WriteTable(ply.InventorySlotMemory)
+                net.Send(ply)
+            end
 
             if IsValid(box_ent.FakePlayer) and box_ent.FakePlayer:HasWeapon(item.class) then
                 box_ent.FakePlayer:StripWeapon(item.class)
@@ -318,6 +457,15 @@ net.Receive("KB_PutItem", function(len, ply)
             clip1 = clip1,
             clip2 = clip2
         }
+
+        if ply.InventorySlotMemory then
+            for k, v in pairs(ply.InventorySlotMemory) do
+                if v == wep_class then ply.InventorySlotMemory[k] = nil end
+            end
+            net.Start("KB_SyncInventorySlots")
+            net.WriteTable(ply.InventorySlotMemory)
+            net.Send(ply)
+        end
         
         if IsValid(box_ent.FakePlayer) and box_ent.FakePlayer:Alive() then
             local target_ply = box_ent.FakePlayer
@@ -387,6 +535,7 @@ net.Receive("KB_PutArmorItem", function(len, ply)
         local dropped_ent = SafeRemoveArmor(actual_target, armorID)
         if IsValid(dropped_ent) then
             local wep_class = dropped_ent:GetClass()
+            local stored_weps = dropped_ent.KB_StoredWeapons
             dropped_ent:Remove() 
             
             box_ent.Inventory[item_index] = {
@@ -394,7 +543,8 @@ net.Receive("KB_PutArmorItem", function(len, ply)
                 claimed = false,
                 ammo_taken = true,
                 clip1 = 0,
-                clip2 = 0
+                clip2 = 0,
+                KB_StoredWeapons = stored_weps
             }
             
             local viewers = {}
@@ -535,6 +685,9 @@ net.Receive("KB_DropLootboxItem", function(len, ply)
             
             wep:SetPos(drop_pos)
             wep:SetAngles(ply:EyeAngles())
+            
+            if item.KB_StoredWeapons then wep.KB_StoredWeapons = table.FullCopy(item.KB_StoredWeapons) end
+            
             wep:Spawn()
             wep:Activate()
             
