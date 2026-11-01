@@ -59,6 +59,19 @@ function SWEP:ShootBullets( damage, num_bullets, aimcone )
     bullet.Force	= 2
     bullet.Damage	= damage
     bullet.AmmoType = self.Primary.Ammo or "pistol"
+
+    bullet.Callback = function(attacker, tr, dmginfo)
+        if tr.Hit and IsValid(tr.Entity) then
+            if tr.Entity:IsPlayer() or tr.Entity:IsNPC() or tr.Entity:IsNextBot() or tr.Entity:IsRagdoll() then
+                local effectdata = EffectData()
+                effectdata:SetOrigin(tr.HitPos)
+                effectdata:SetNormal(tr.HitNormal)
+                effectdata:SetEntity(tr.Entity)
+                
+                util.Effect("BloodImpact", effectdata)
+            end
+        end
+    end
     
     if IsValid(rag) then
         bullet.IgnoreEntity = rag

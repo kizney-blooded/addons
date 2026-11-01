@@ -196,11 +196,33 @@ function SWEP:PrimaryAttack()
 		--self:GetOwner():EmitSound( Sound( self.HitSound ),60 )
 	end
 
-	if SERVER and Tr.Hit and self.ShouldDecal then
-		if IsValid(Tr.Entity) and Tr.Entity:GetClass()=="prop_ragdoll" then
-			util.Decal("Impact.Flesh",pos1,pos2)
+	if tr.Hit and self.ShouldDecal then
+		if IsValid(tr.Entity) and (tr.Entity:GetClass() == "prop_ragdoll" or tr.Entity:IsPlayer() or tr.Entity:IsNPC()) then
+
+			local ed = EffectData()
+			ed:SetOrigin(tr.HitPos)
+			ed:SetNormal(tr.HitNormal)
+			ed:SetEntity(tr.Entity)
+			ed:SetScale(1)
+			ed:SetColor(0)
+			ed:SetFlags(3)
+			util.Effect("BloodImpact", ed)
+
+			if tr.Entity:IsPlayer() or tr.Entity:IsNPC() then
+				local bullet = {}
+				bullet.Num = 1
+				bullet.Src = self:GetOwner():GetShootPos()
+				bullet.Dir = (tr.HitPos - bullet.Src):GetNormalized()
+				bullet.Spread = Vector(0, 0, 0)
+				bullet.Tracer = 0
+				bullet.Force = 0
+				bullet.Damage = 0
+				self:GetOwner():FireBullets(bullet)
+			else
+				util.Decal("Impact.Flesh", pos1, pos2)
+			end
 		else
-			util.Decal("ManhackCut",pos1,pos2)
+			util.Decal("ManhackCut", pos1, pos2)
 		end
 	end
 

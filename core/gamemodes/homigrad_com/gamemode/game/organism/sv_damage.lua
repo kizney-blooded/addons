@@ -133,7 +133,7 @@ local cd = 0.5
 hook.Add("Ragdoll Collide", "RagdollDamage", function(rag, data)
     local ply = rag.FakePlayer
     if ply == data.HitEntity then return end
-    if not IsValid(ply) or not ply:Alive() then return end
+    
 
     rag.NextDamageTime = rag.NextDamageTime or 0
     if CurTime() < rag.NextDamageTime then return end
@@ -169,31 +169,42 @@ hook.Add("Ragdoll Collide", "RagdollDamage", function(rag, data)
     local massModifier = math.Clamp(boneMass / 15, 0.1, 1)
     local finalSpeed = impactSpeed * massModifier
 
-    if finalSpeed > min_speed then
-        local damageAmount = (finalSpeed - min_speed) * dmg_mult * damageMultiplier
+    if finalSpeed > 350 then -- min_speed
+        local damageAmount = (finalSpeed - 350) * 0.65 * damageMultiplier -- dmg_mult
         
         if damageAmount > 1 then
-            local dmginfo = DamageInfo()
-            dmginfo:SetDamage(damageAmount)
             
-            if IsValid(data.HitEntity) then
-                dmginfo:SetAttacker(data.HitEntity)
-                dmginfo:SetInflictor(data.HitEntity)
-            else
-                dmginfo:SetAttacker(game.GetWorld())
-                dmginfo:SetInflictor(game.GetWorld())
-            end
-            
-            dmginfo:SetDamageType(DMG_CRUSH)
-            
-            ply:TakeDamageInfo(dmginfo)
+            local effectdata = EffectData()
+            effectdata:SetOrigin(data.HitPos)
+            effectdata:SetNormal(data.HitNormal)
+            effectdata:SetScale(1)
+            effectdata:SetColor(0)
+            util.Effect("BloodImpact", effectdata)
+
+            util.Decal("Blood", data.HitPos + data.HitNormal, data.HitPos - data.HitNormal)
+
+            rag.NextDamageTime = CurTime() + 0.5 -- cd
+            rag:EmitSound("Flesh.ImpactHard")
             
             process_hitgroup_damage(rag, current_hitgroup, damageAmount, data.HitPos)
 
-            otrub_system(ply, damageAmount, current_hitgroup)
-            
-            rag.NextDamageTime = CurTime() + cd
-            rag:EmitSound("Flesh.ImpactHard")
+            if IsValid(ply) and ply:Alive() then
+                local dmginfo = DamageInfo()
+                dmginfo:SetDamage(damageAmount)
+                
+                if IsValid(data.HitEntity) then
+                    dmginfo:SetAttacker(data.HitEntity)
+                    dmginfo:SetInflictor(data.HitEntity)
+                else
+                    dmginfo:SetAttacker(game.GetWorld())
+                    dmginfo:SetInflictor(game.GetWorld())
+                end
+                
+                dmginfo:SetDamageType(DMG_CRUSH)
+                
+                ply:TakeDamageInfo(dmginfo)
+                otrub_system(ply, damageAmount, current_hitgroup)
+            end
         end
     end
 end)

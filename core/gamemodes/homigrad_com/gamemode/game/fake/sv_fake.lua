@@ -1,5 +1,7 @@
 util.AddNetworkString("KB_SyncRagdollArmor")
 
+util.AddNetworkString("KB_SyncRagdollDecals")
+
 local playermeta = FindMetaTable("Player")
 
 playermeta.CreateRagdoll = function() return false end
@@ -65,6 +67,11 @@ function playermeta:create_fake(vel)
     end
 
     rag:Spawn()
+
+    net.Start("KB_SyncRagdollDecals")
+    net.WriteUInt(self:EntIndex(), 16)
+    net.WriteUInt(rag:EntIndex(), 16)
+    net.Broadcast()
 
     if IsValid(rag) then
         self.FakeRagdoll = rag
