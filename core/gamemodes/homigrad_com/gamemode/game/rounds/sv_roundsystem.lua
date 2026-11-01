@@ -36,7 +36,7 @@ end)
 function PickRounds()
     local current_map = game.GetMap()
 
-    if string.StartWith(current_map, "de_") or current_map == "rp_truenorth_v1a" then
+    if string.StartWith(current_map, "de_") or current_map == "rp_truenorth_v1a" or current_map == "rp_downtown_v2_haunted" then
         kb.RD.current_round = "constract"
         kb.RD.next_round = "constract"
     else
