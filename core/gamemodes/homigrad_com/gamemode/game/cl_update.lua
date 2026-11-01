@@ -58,10 +58,12 @@ local function ShowUpdateMenu( forceShow )
     AddTextInfo("Бинды на сервере: \n", color_white)
 
     AddTextInfo("Падать в регдолл - bind кнопка fake\n", color_white)
-    AddTextInfo("Изменения 31.10.26:\n", Color(255,181,96))
+    AddTextInfo("Изменения 1.11.26:\n", Color(255,181,96))
 
-    AddTextInfo("+ Добавил доп.слоты для рюкзаков", color_white)
-    AddTextInfo("+ Добавил кд на подбирание", color_white)
+    AddTextInfo("+ Доделанная система рюкзаков", color_white)
+    AddTextInfo("+ Система кланов (!clan create/add/del/quit)", color_white)
+    AddTextInfo("+ Кровь теперь больше и круче", color_white)
+
 
     local bottomPanel = vgui.Create("DPanel", ActiveMenuFrame)
     bottomPanel:Dock(BOTTOM)
