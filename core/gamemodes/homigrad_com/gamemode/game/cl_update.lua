@@ -1,4 +1,4 @@
-local UPDATE_VERSION = "v0.03" 
+local UPDATE_VERSION = "v0.04" 
 local COOKIE_NAME = "Kizney`s Box " .. UPDATE_VERSION
 
 if IsValid(ActiveMenuFrame) then 
@@ -61,7 +61,7 @@ local function ShowUpdateMenu( forceShow )
     AddTextInfo("Изменения 1.11.26:\n", Color(255,181,96))
 
     AddTextInfo("+ Доделанная система рюкзаков", color_white)
-    AddTextInfo("+ Система кланов (!clan create/add/del/quit)", color_white)
+    AddTextInfo("+ Система кланов (!clan create/add/remove/quit)", color_white)
     AddTextInfo("+ Кровь теперь больше и круче", color_white)
 
 
