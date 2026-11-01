@@ -156,6 +156,8 @@ net.Receive("KB_MoveFromBackpack", function(len, ply)
     local bp_item = ply.EZarmor.items[bp_id]
     if bp_item.KB_StoredWeapons and bp_item.KB_StoredWeapons[slotFrom] then
         local stored_wep = bp_item.KB_StoredWeapons[slotFrom]
+
+        if ply:HasWeapon(stored_wep.class) then return end
         
         local targetClass = ply.InventorySlotMemory and ply.InventorySlotMemory[slotTo]
         

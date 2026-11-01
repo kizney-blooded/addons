@@ -128,6 +128,13 @@ local function calculateCanTouchForType(ply, ent, touchType)
     if ent["Share" .. setting] then return not noTouchOtherPlayerProps, reasonNumbers.shared end
 
     if IsValid(owner) then
+
+        local ownerClan = owner:GetNWString("Clan", "")
+        local plyClan = ply:GetNWString("Clan", "")
+        if ownerClan ~= "" and ownerClan == plyClan then 
+            return not noTouchOtherPlayerProps, reasonNumbers.shared 
+        end
+
         -- Player is buddies with the owner of the entity
         if owner.Buddies and owner.Buddies[ply] and owner.Buddies[ply][touchType] then return not noTouchOtherPlayerProps, reasonNumbers.buddy end
 

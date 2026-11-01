@@ -504,15 +504,7 @@ function Frame_Inventory()
         for i = 1, 8 do
             local cls = inventory_slot_memory[i]
             if cls then
-                local is_in_backpack = false
-                for b_idx = 9, 14 do
-                    if bp_weps[b_idx] and bp_weps[b_idx].class == cls then
-                        is_in_backpack = true
-                        break
-                    end
-                end
-
-                if not current_classes[cls] and not LocalPlayer():HasWeapon(cls) and not is_in_backpack then
+                if not current_classes[cls] and not LocalPlayer():HasWeapon(cls) then
                     if not kb_expected_items[cls] then
                         inventory_slot_memory[i] = nil
                         memory_changed = true
@@ -529,6 +521,7 @@ function Frame_Inventory()
 
         for class, wep in pairs(current_classes) do
             local is_stored = false
+            
             for i = 1, 8 do
                 if inventory_slot_memory[i] == class then
                     is_stored = true
@@ -536,15 +529,6 @@ function Frame_Inventory()
                 end
             end
 
-            if not is_stored then
-                for i = 9, 14 do
-                    if bp_weps[i] and bp_weps[i].class == class then
-                        is_stored = true
-                        break
-                    end
-                end
-            end
-            
             if not is_stored then
                 for i = 1, 8 do
                     if not inventory_slot_memory[i] then
@@ -627,6 +611,12 @@ function Frame_Inventory()
 
                     if fromIndex ~= toIndex then
                         local draggedClass = draggedBtn.WepClass
+
+                        if fromIndex > 8 and toIndex <= 8 then
+                            if LocalPlayer():HasWeapon(draggedClass) then
+                                return
+                            end
+                        end
                         
                         local cur_bp_weps = {}
                         if ply.EZarmor and ply.EZarmor.items then
@@ -661,11 +651,13 @@ function Frame_Inventory()
                             SyncInventorySlotsToServer()
                             
                         elseif fromIndex <= 8 and toIndex > 8 then
-                            kb_expected_items[draggedClass] = true
                             if targetClass then kb_expected_items[targetClass] = true end
                             inventory_slot_memory[fromIndex] = targetClass
                             cur_bp_weps[toIndex] = {class = draggedClass}
                             SyncInventorySlotsToServer()
+                            
+                            local local_wep = LocalPlayer():GetWeapon(draggedClass)
+                            if IsValid(local_wep) then local_wep.KB_PendingTransfer = true end
                             
                             net.Start("KB_MoveToBackpack")
                             net.WriteString(draggedClass)
@@ -674,10 +666,14 @@ function Frame_Inventory()
                             
                         elseif fromIndex > 8 and toIndex <= 8 then
                             kb_expected_items[draggedClass] = true
-                            if targetClass then kb_expected_items[targetClass] = true end
                             cur_bp_weps[fromIndex] = targetClass and {class = targetClass} or nil
                             inventory_slot_memory[toIndex] = draggedClass
                             SyncInventorySlotsToServer()
+                            
+                            if targetClass then
+                                local local_wep = LocalPlayer():GetWeapon(targetClass)
+                                if IsValid(local_wep) then local_wep.KB_PendingTransfer = true end
+                            end
                             
                             net.Start("KB_MoveFromBackpack")
                             net.WriteUInt(fromIndex, 8)
@@ -685,8 +681,6 @@ function Frame_Inventory()
                             net.SendToServer()
                             
                         elseif fromIndex > 8 and toIndex > 8 then
-                            kb_expected_items[draggedClass] = true
-                            if targetClass then kb_expected_items[targetClass] = true end
                             cur_bp_weps[toIndex] = {class = draggedClass}
                             cur_bp_weps[fromIndex] = targetClass and {class = targetClass} or nil
                             

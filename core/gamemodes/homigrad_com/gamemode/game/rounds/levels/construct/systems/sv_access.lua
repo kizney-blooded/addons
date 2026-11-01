@@ -32,8 +32,18 @@ hook.Add("PhysgunPickup", "ZGPropKilLPickup", function(ply, ent)
         return 
     end
 
-    if ent:CPPIGetOwner() ~= ply then 
-        return false 
+    local owner = ent:CPPIGetOwner()
+    if owner ~= ply then 
+        local isSameClan = false
+        if IsValid(owner) and owner:IsPlayer() then
+            local ownerClan = owner:GetNWString("Clan", "")
+            local plyClan = ply:GetNWString("Clan", "")
+            if ownerClan ~= "" and ownerClan == plyClan then
+                isSameClan = true
+            end
+        end
+        
+        if not isSameClan then return false end
     end
 	
 	ent.oldColor = ent:GetColor();
@@ -142,7 +152,16 @@ hook.Add("PlayerSpawnSENT", "Shkaf_PreventSENT", function(ply, class)
         
         for _, ent in ipairs(ents.FindByClass("con_shkaf")) do
             if IsValid(ent) and ent.ShkafOwner ~= ply then
-                if ent:GetPos():DistToSqr(spawnPos) < (minDistance ^ 2) then
+                local isSameClan = false
+                if IsValid(ent.ShkafOwner) then
+                    local ownerClan = ent.ShkafOwner:GetNWString("Clan", "")
+                    local plyClan = ply:GetNWString("Clan", "")
+                    if ownerClan ~= "" and ownerClan == plyClan then
+                        isSameClan = true
+                    end
+                end
+
+                if not isSameClan and ent:GetPos():DistToSqr(spawnPos) < (minDistance ^ 2) then
                     ply:ChatPrint("Эта территория пересекается с чужой приватной зоной!")
                     return false
                 end
@@ -255,7 +274,16 @@ timer.Create("Shkaf_ZoneEnforcer", 1, 0, function()
             if not IsValid(otherShkaf) then continue end
 
             if myShkaf.ShkafOwner ~= otherShkaf.ShkafOwner then
-                if myShkaf:GetPos():DistToSqr(otherShkaf:GetPos()) < (minDistance ^ 2) then
+                local isSameClan = false
+                if IsValid(myShkaf.ShkafOwner) and IsValid(otherShkaf.ShkafOwner) then
+                    local clan1 = myShkaf.ShkafOwner:GetNWString("Clan", "")
+                    local clan2 = otherShkaf.ShkafOwner:GetNWString("Clan", "")
+                    if clan1 ~= "" and clan1 == clan2 then
+                        isSameClan = true
+                    end
+                end
+
+                if not isSameClan and myShkaf:GetPos():DistToSqr(otherShkaf:GetPos()) < (minDistance ^ 2) then
                     local phys = myShkaf:GetPhysicsObject()
                     print(phys)
                     if IsValid(phys) and not phys:IsAsleep() or myShkaf:IsPlayerHolding() then

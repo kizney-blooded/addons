@@ -103,6 +103,12 @@ local function process_hitgroup_damage(ent, hitgroup, damage, pos)
 end
 
 hook.Add("ScalePlayerDamage", "KB_HitGroupScale", function(ply, hitgroup, dmginfo)
+
+    local attacker = dmginfo:GetAttacker()
+    if ply:HasGodMode() or hook.Run("PlayerShouldTakeDamage", ply, attacker) == false then
+        return
+    end
+
     local scale = kb.HitGroupDamage[hitgroup]
     if scale then
         dmginfo:ScaleDamage(scale)
@@ -132,7 +138,7 @@ local cd = 0.5
 
 hook.Add("Ragdoll Collide", "RagdollDamage", function(rag, data)
     local ply = rag.FakePlayer
-    if ply == data.HitEntity then return end
+    if ply == data.HitEntity or rag == data.HitEntity then return end
     
 
     rag.NextDamageTime = rag.NextDamageTime or 0
@@ -173,6 +179,13 @@ hook.Add("Ragdoll Collide", "RagdollDamage", function(rag, data)
         local damageAmount = (finalSpeed - 350) * 0.65 * damageMultiplier -- dmg_mult
         
         if damageAmount > 1 then
+
+            local attacker = IsValid(data.HitEntity) and data.HitEntity or game.GetWorld()
+            if IsValid(ply) then
+                if ply:HasGodMode() or hook.Run("PlayerShouldTakeDamage", ply, attacker) == false then
+                    return
+                end
+            end
             
             local effectdata = EffectData()
             effectdata:SetOrigin(data.HitPos)
@@ -211,6 +224,12 @@ end)
 
 hook.Add("EntityTakeDamage", "Ragdoll_Damage_From_Player", function(ent, dmginfo)
     local attacker = dmginfo:GetAttacker()
+
+    if IsValid(ent) and IsValid(ent.FakePlayer) then
+        if ent.FakePlayer:HasGodMode() or hook.Run("PlayerShouldTakeDamage", ent.FakePlayer, attacker) == false then
+            return true
+        end
+    end
 
     if IsValid(attacker) and attacker:IsNPC() then
         
